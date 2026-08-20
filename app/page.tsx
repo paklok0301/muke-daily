@@ -11,6 +11,11 @@ type Shift = {
   start: string;
   end: string;
   breakMinutes: number;
+  jobName?: string;
+  rate?: number;
+  location?: string;
+  sessions?: number;
+  amount?: number;
 };
 type Task = { id: string; text: string; done: boolean };
 type PlanItem = { id: string; activity: string; date: string; time: string; color: string; done: boolean; notified: boolean };
@@ -69,6 +74,11 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("zh-HK", { maximumFractionDigits: 0 }).format(value);
 }
 
+function shiftEarnings(shift: Shift, job?: Job) {
+  if (typeof shift.amount === "number") return shift.amount;
+  return minutesBetween(shift.start, shift.end, shift.breakMinutes) / 60 * (shift.rate ?? job?.rate ?? 0);
+}
+
 function startOfMonth(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
 }
@@ -97,7 +107,7 @@ function useClock(running: RunningShift) {
 }
 
 function MiniCalendar({
-  markedDates, workouts, shifts, jobs, diary, plans,
+  markedDates, workouts, shifts, jobs, diary, plans, holidays,
 }: {
   markedDates: Set<string>;
   workouts: Record<string, WorkoutType>;
@@ -105,6 +115,7 @@ function MiniCalendar({
   jobs: Job[];
   diary: Record<string, string>;
   plans: PlanItem[];
+  holidays: Record<string, string>;
 }) {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [selected, setSelected] = useState(isoDate());
@@ -135,7 +146,7 @@ function MiniCalendar({
   }
 
   function hasActivity(date: string) {
-    return markedDates.has(date) || Boolean(workouts[date]);
+    return markedDates.has(date) || Boolean(workouts[date]) || Boolean(holidays[date]);
   }
 
   return (
@@ -159,8 +170,11 @@ function MiniCalendar({
             const key = day ? `${year}-${pad(month + 1)}-${pad(day)}` : `blank-${index}`;
             if (!day) return <span key={key} />;
             const dayPlans = plans.filter((plan) => plan.date === key && !plan.done).sort((a, b) => a.time.localeCompare(b.time));
-            return <button key={key} aria-label={`${month + 1}月${day}日`} onClick={() => setSelected(key)} className={`calendar-day ${key === todayKey ? "today" : ""} ${key === selected ? "selected" : ""}`}>
+            const holiday = holidays[key];
+            const isSunday = new Date(year, month, day, 12).getDay() === 0;
+            return <button key={key} aria-label={`${month + 1}月${day}日${holiday ? `，${holiday}` : ""}`} onClick={() => { setSelected(key); setView("day"); }} className={`calendar-day ${key === todayKey ? "today" : ""} ${key === selected ? "selected" : ""} ${holiday ? "holiday" : ""} ${isSunday ? "sunday" : ""}`}>
               <span className="day-number">{day}</span>
+              {holiday && <span className="holiday-label" title={holiday}>{holiday}</span>}
               {dayPlans.slice(0, 1).map((plan) => <span className="calendar-plan-bar" style={{ background: plan.color }} key={plan.id}>{plan.time} {plan.activity}</span>)}
               {dayPlans.length > 1 && <span className="more-plans">＋{dayPlans.length - 1}</span>}
               <span className="date-marks">{markedDates.has(key) && !dayPlans.length && <i />}{workouts[key] && <b aria-label={`當日是${workouts[key]}日`} title={`${workouts[key]}日`} />}</span>
@@ -173,7 +187,7 @@ function MiniCalendar({
         <div className="week-strip">{weekDays.map((date) => {
           const key = isoDate(date);
           const firstPlan = plans.find((plan) => plan.date === key && !plan.done);
-          return <button key={key} className={`${key === selected ? "selected" : ""} ${key === todayKey ? "today" : ""}`} onClick={() => setSelected(key)}>
+          return <button key={key} className={`${key === selected ? "selected" : ""} ${key === todayKey ? "today" : ""} ${holidays[key] ? "holiday" : ""}`} onClick={() => setSelected(key)}>
             <small>{date.toLocaleDateString("zh-HK", { weekday: "narrow" })}</small><strong>{date.getDate()}</strong><span>{hasActivity(key) && <i style={firstPlan ? { background: firstPlan.color } : undefined} />}{workouts[key] && <b />}</span>
           </button>;
         })}</div>
@@ -182,20 +196,25 @@ function MiniCalendar({
             const key = isoDate(date);
             const count = shifts.filter((shift) => shift.date === key).length;
             const planCount = plans.filter((plan) => plan.date === key && !plan.done).length;
-            return <button key={key} onClick={() => { setSelected(key); setView("day"); }}><span>{date.toLocaleDateString("zh-HK", { weekday: "short", day: "numeric" })}</span><strong>{[planCount ? `${planCount} 項計劃` : "", count ? `${count} 段工時` : "", workouts[key] ? `${workouts[key]}日` : "", diary[key]?.trim() ? "有日記" : ""].filter(Boolean).join(" · ")}</strong><em>›</em></button>;
+            return <button key={key} onClick={() => { setSelected(key); setView("day"); }}><span>{date.toLocaleDateString("zh-HK", { weekday: "short", day: "numeric" })}</span><strong>{[holidays[key] ?? "", planCount ? `${planCount} 項計劃` : "", count ? `${count} 段工時` : "", workouts[key] ? `${workouts[key]}日` : "", diary[key]?.trim() ? "有日記" : ""].filter(Boolean).join(" · ")}</strong><em>›</em></button>;
           })}
           {!weekDays.some((date) => hasActivity(isoDate(date))) && <p className="empty-calendar">本週尚未有記錄</p>}
         </div>
       </div>}
 
       {view === "day" && <div className="day-view">
+        {holidays[selected] && <div className="day-event holiday-event"><span className="event-icon">假</span><div><small>香港公眾假期</small><strong>{holidays[selected]}</strong></div></div>}
         {selectedPlans.map((plan) => <div className="day-event plan-event" key={plan.id}><span className="event-icon" style={{ background: plan.color }}>行</span><div><small>計劃 · {plan.time}</small><strong>{plan.activity}</strong></div></div>)}
         {workouts[selected] && <div className="day-event workout-event"><span className="event-icon">練</span><div><small>健身</small><strong>{workouts[selected]}日訓練</strong></div></div>}
-        {selectedShifts.map((shift) => <div className="day-event" key={shift.id}><span className="event-icon">時</span><div><small>{jobs.find((job) => job.id === shift.jobId)?.name ?? "兼職"}</small><strong>{shift.start} — {shift.end}</strong></div><em>{formatHours(minutesBetween(shift.start, shift.end, shift.breakMinutes))}</em></div>)}
+        {selectedShifts.map((shift) => {
+          const job = jobs.find((item) => item.id === shift.jobId);
+          return <div className="day-event" key={shift.id}><span className="event-icon">時</span><div><small>{job?.name ?? shift.jobName ?? "已刪除工作"}{shift.location ? ` · ${shift.location}` : ""}</small><strong>{shift.start} — {shift.end}{shift.sessions ? ` · ${shift.sessions} 堂` : ""}</strong></div><em>HK${formatMoney(shiftEarnings(shift, job))}</em></div>;
+        })}
         {diary[selected]?.trim() && <div className="day-event"><span className="event-icon">記</span><div><small>日記</small><strong>{diary[selected].slice(0, 42)}{diary[selected].length > 42 ? "…" : ""}</strong></div></div>}
         {!hasActivity(selected) && <p className="empty-calendar">這天還沒有記錄。<br />留白也可以是一種休息。</p>}
       </div>}
-      <div className="calendar-legend"><span><i />日記／工時</span><span><em />彩色活動</span><span><b />健身</span></div>
+      <div className="calendar-legend"><span><u />公眾假期</span><span><i />日記／工時</span><span><em />活動</span><span><b />健身</span></div>
+      <p className="holiday-source">假期資料：香港政府 1823 · 每日自動更新</p>
     </section>
   );
 }
@@ -212,15 +231,20 @@ export default function Home() {
   const [planColor, setPlanColor] = useState(planColors[4]);
   const [planError, setPlanError] = useState("");
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+  const [holidays, setHolidays] = useState<Record<string, string>>({});
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [showJobForm, setShowJobForm] = useState(false);
   const [jobName, setJobName] = useState("");
   const [jobRate, setJobRate] = useState("");
+  const [jobError, setJobError] = useState("");
   const [selectedJob, setSelectedJob] = useState(defaultData.jobs[0].id);
   const [shiftDate, setShiftDate] = useState(isoDate());
   const [shiftStart, setShiftStart] = useState("17:00");
   const [shiftEnd, setShiftEnd] = useState("22:00");
   const [breakMinutes, setBreakMinutes] = useState("0");
+  const [shiftLocation, setShiftLocation] = useState("");
+  const [shiftSessions, setShiftSessions] = useState("1");
+  const [shiftAmount, setShiftAmount] = useState("");
   const [shiftError, setShiftError] = useState("");
   const elapsed = useClock(data.runningShift);
 
@@ -256,6 +280,14 @@ export default function Home() {
   }, [data, hydrated]);
 
   useEffect(() => {
+    let active = true;
+    fetch("/api/hk-holidays").then((response) => response.ok ? response.json() : Promise.reject()).then((payload: { holidays?: Record<string, string> }) => {
+      if (active && payload.holidays) setHolidays(payload.holidays);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     if (!hydrated || notificationPermission !== "granted") return;
     const notifyDuePlans = () => {
       const now = Date.now();
@@ -280,18 +312,20 @@ export default function Home() {
     const month = startOfMonth();
     let minutes = 0;
     let pay = 0;
+    let sessions = 0;
     const byJob: Record<string, { minutes: number; pay: number }> = {};
     for (const shift of data.shifts.filter((item) => item.date.startsWith(month))) {
       const shiftMinutes = minutesBetween(shift.start, shift.end, shift.breakMinutes);
       const job = data.jobs.find((item) => item.id === shift.jobId);
-      const shiftPay = shiftMinutes / 60 * (job?.rate ?? 0);
+      const shiftPay = shiftEarnings(shift, job);
       minutes += shiftMinutes;
       pay += shiftPay;
+      sessions += shift.sessions ?? 0;
       byJob[shift.jobId] ??= { minutes: 0, pay: 0 };
       byJob[shift.jobId].minutes += shiftMinutes;
       byJob[shift.jobId].pay += shiftPay;
     }
-    return { minutes, pay, byJob };
+    return { minutes, pay, sessions, byJob };
   }, [data.jobs, data.shifts]);
 
   const markedDates = useMemo(() => new Set([
@@ -373,6 +407,7 @@ export default function Home() {
     const started = new Date(data.runningShift.startedAt);
     const ended = new Date();
     const running = data.runningShift;
+    const finishedJob = data.jobs.find((job) => job.id === running.jobId);
     setData((prev) => ({
       ...prev,
       runningShift: null,
@@ -380,6 +415,7 @@ export default function Home() {
         id: crypto.randomUUID(), jobId: running.jobId, date: isoDate(started),
         start: `${pad(started.getHours())}:${pad(started.getMinutes())}`,
         end: `${pad(ended.getHours())}:${pad(ended.getMinutes())}`, breakMinutes: 0,
+        jobName: finishedJob?.name, rate: finishedJob?.rate,
       }, ...prev.shifts],
     }));
   }
@@ -390,11 +426,19 @@ export default function Home() {
       setShiftError("請確認開始、結束及休息時間，工時需要大於 0 分鐘。");
       return;
     }
+    const savedJob = data.jobs.find((job) => job.id === selectedJob);
     setShiftError("");
     setData((prev) => ({ ...prev, shifts: [{
       id: crypto.randomUUID(), jobId: selectedJob, date: shiftDate,
       start: shiftStart, end: shiftEnd, breakMinutes: Number(breakMinutes) || 0,
+      jobName: savedJob?.name, rate: savedJob?.rate,
+      location: shiftLocation.trim() || undefined,
+      sessions: Number(shiftSessions) > 0 ? Number(shiftSessions) : undefined,
+      amount: shiftAmount === "" ? undefined : Math.max(0, Number(shiftAmount) || 0),
     }, ...prev.shifts] }));
+    setShiftLocation("");
+    setShiftSessions("1");
+    setShiftAmount("");
     setShowShiftForm(false);
   }
 
@@ -404,7 +448,29 @@ export default function Home() {
     const id = crypto.randomUUID();
     setData((prev) => ({ ...prev, jobs: [...prev.jobs, { id, name: jobName.trim(), rate: Number(jobRate), color: accentColors[prev.jobs.length % accentColors.length] }] }));
     setSelectedJob(id);
-    setJobName(""); setJobRate(""); setShowJobForm(false);
+    setJobName(""); setJobRate(""); setJobError(""); setShowJobForm(false);
+  }
+
+  function deleteJob(id: string) {
+    const job = data.jobs.find((item) => item.id === id);
+    if (!job) return;
+    if (data.jobs.length <= 1) {
+      setJobError("至少需要保留一個工作。");
+      return;
+    }
+    if (data.runningShift?.jobId === id) {
+      setJobError("這個工作正在計時，請先結束工作再刪除。");
+      return;
+    }
+    if (!window.confirm(`確定刪除「${job.name}」？過往工時記錄會保留。`)) return;
+    const remainingJobs = data.jobs.filter((item) => item.id !== id);
+    setData((prev) => ({
+      ...prev,
+      jobs: prev.jobs.filter((item) => item.id !== id),
+      shifts: prev.shifts.map((shift) => shift.jobId === id ? { ...shift, jobName: shift.jobName ?? job.name, rate: shift.rate ?? job.rate } : shift),
+    }));
+    if (selectedJob === id) setSelectedJob(remainingJobs[0].id);
+    setJobError("");
   }
 
   function saveDiary() {
@@ -443,19 +509,10 @@ export default function Home() {
           <section className="hero">
             <span className="eyebrow">Good evening</span>
             <h1>Remember<br /><em>who you are.</em></h1>
-            <p>待辦、工時與心情，都在一個安靜的地方。</p>
+            <p>待辦、計劃與心情，都在一個安靜的地方。</p>
           </section>
 
-          <section className={`card clock-card ${data.runningShift ? "is-running" : ""}`}>
-            <div className="clock-orbit"><div className="clock-dot" /></div>
-            <div className="clock-copy">
-              <span className="eyebrow">Part-time · {currentJob?.name}</span>
-              <strong>{data.runningShift ? elapsed : `HK$ ${formatMoney(totals.pay)}`}</strong>
-              <span>{data.runningShift ? `HK$${currentJob?.rate}/小時 · 正在記錄` : `本月 ${formatHours(totals.minutes)} · ${data.shifts.filter(s => s.date.startsWith(startOfMonth())).length} 次`}</span>
-            </div>
-            {!data.runningShift && <select aria-label="選擇兼職" value={selectedJob} onChange={(e) => setSelectedJob(e.target.value)}>{data.jobs.map((job) => <option key={job.id} value={job.id}>{job.name}</option>)}</select>}
-            <button className="primary-button" onClick={toggleClock}>{data.runningShift ? "結束工作" : "開始工作"}</button>
-          </section>
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} holidays={holidays} />
 
           <section className={`card gym-card ${workoutToday ? "checked" : ""}`}>
             <div className="gym-symbol"><span /><i /><span /></div>
@@ -472,13 +529,9 @@ export default function Home() {
             </div>
             <form className="quick-add" onSubmit={addTask}><input value={taskText} onChange={(e) => setTaskText(e.target.value)} placeholder="記一件今天要做的事…" aria-label="新增待辦" /><button aria-label="加入待辦">↗</button></form>
           </section>
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} />
         </>}
 
         {tab === "plan" && <>
-          <section className="hero plan-hero"><span className="eyebrow">Plan ahead</span><h1>留一個位置，<br /><em>給未來的事。</em></h1><p>準確日期、時間、活動與顏色，一眼便看懂。</p></section>
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} />
-
           <section className="card plan-form-card">
             <div className="section-heading"><div><span className="eyebrow">New event</span><h2>新增活動</h2></div><span className="count">＋</span></div>
             <form className="plan-form" onSubmit={addPlan}>
@@ -489,6 +542,9 @@ export default function Home() {
               <button className="primary-button" type="submit">加入計劃</button>
             </form>
           </section>
+
+          <section className="hero plan-hero plan-hero-after"><span className="eyebrow">Plan ahead</span><h1>留一個位置，<br /><em>給未來的事。</em></h1><p>準確日期、時間、活動與顏色，一眼便看懂。</p></section>
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} holidays={holidays} />
 
           <section className="card notification-card">
             <div><span className="eyebrow">Reminder</span><h2>{notificationPermission === "granted" ? "到點通知已開啟" : "不要錯過這件事"}</h2><p>開啟 App 通知；再把重要項目加入手機行事曆，即使 App 關閉也會可靠提醒。</p></div>
@@ -518,23 +574,27 @@ export default function Home() {
           <section className="section-block">
             <div className="outside-heading"><div><span className="eyebrow">Jobs</span><h2>我的兼職</h2></div><button className="text-button" onClick={() => setShowJobForm(!showJobForm)}>＋ 新增</button></div>
             {showJobForm && <form className="card compact-form" onSubmit={addJob}><input placeholder="工作名稱" value={jobName} onChange={e => setJobName(e.target.value)} required /><input type="number" inputMode="decimal" placeholder="時薪 HK$" value={jobRate} onChange={e => setJobRate(e.target.value)} required /><button className="primary-button">儲存工作</button></form>}
-            <div className="job-grid">{data.jobs.map(job => <div className="card job-card" key={job.id}><i style={{ background: job.color }} /><span>{job.name}</span><strong>HK${formatMoney(totals.byJob[job.id]?.pay ?? 0)}</strong><small>{formatHours(totals.byJob[job.id]?.minutes ?? 0)} · HK${job.rate}/h</small></div>)}</div>
+            <div className="job-grid">{data.jobs.map(job => <div className="card job-card" key={job.id}><div className="job-card-top"><i style={{ background: job.color }} /><button onClick={() => deleteJob(job.id)} aria-label={`刪除${job.name}`}>刪除</button></div><span>{job.name}</span><strong>HK${formatMoney(totals.byJob[job.id]?.pay ?? 0)}</strong><small>{formatHours(totals.byJob[job.id]?.minutes ?? 0)} · HK${job.rate}/h</small></div>)}</div>
+            {jobError && <p className="form-error job-error" role="alert">{jobError}</p>}
           </section>
 
           <section className="card history-card">
             <div className="section-heading"><div><span className="eyebrow">History</span><h2>最近記錄</h2></div><button className="text-button" onClick={() => setShowShiftForm(!showShiftForm)}>＋ 補錄</button></div>
+            <div className="history-summary" aria-label="本月工作結算"><div><small>本月應收</small><strong>HK${formatMoney(totals.pay)}</strong></div><div><small>堂／節數</small><strong>{totals.sessions}</strong></div><div><small>總工時</small><strong>{formatHours(totals.minutes)}</strong></div></div>
             {showShiftForm && <form className="shift-form" onSubmit={(event) => { event.preventDefault(); saveShift(); }}>
               <label>兼職<select value={selectedJob} onChange={e => setSelectedJob(e.target.value)}>{data.jobs.map(job => <option value={job.id} key={job.id}>{job.name}</option>)}</select></label>
               <label>日期<input type="date" value={shiftDate} onChange={e => setShiftDate(e.target.value)} /></label>
               <div className="form-pair"><label>開始<input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} /></label><label>結束<input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} /></label></div>
               <label>休息分鐘<input type="number" inputMode="numeric" min="0" value={breakMinutes} onChange={e => setBreakMinutes(e.target.value)} /></label>
+              <label>地點<input value={shiftLocation} onChange={e => setShiftLocation(e.target.value)} placeholder="例如：灣仔道場" /></label>
+              <div className="form-pair"><label>堂數／節數<input type="number" inputMode="numeric" min="1" step="1" value={shiftSessions} onChange={e => setShiftSessions(e.target.value)} /></label><label>實收金額 HK$<input type="number" inputMode="decimal" min="0" step="0.01" value={shiftAmount} onChange={e => setShiftAmount(e.target.value)} placeholder="留空則按時薪" /></label></div>
               {shiftError && <p className="form-error" role="alert">{shiftError}</p>}
               <button className="primary-button" type="button" onClick={saveShift}>儲存這次工時</button>
             </form>}
             <div className="history-list">{data.shifts.slice(0, 6).map(shift => {
               const job = data.jobs.find(item => item.id === shift.jobId);
               const mins = minutesBetween(shift.start, shift.end, shift.breakMinutes);
-              return <div className="history-row" key={shift.id}><span className="date-tile"><b>{Number(shift.date.slice(-2))}</b><small>{new Date(`${shift.date}T12:00:00`).toLocaleDateString("zh-HK", { month: "short" })}</small></span><div><strong>{job?.name ?? "兼職"}</strong><small>{shift.start}—{shift.end}{shift.breakMinutes ? ` · 休息 ${shift.breakMinutes}m` : ""}</small></div><span className="pay"><b>HK${formatMoney(mins / 60 * (job?.rate ?? 0))}</b><small>{formatHours(mins)}</small></span></div>;
+              return <div className="history-row" key={shift.id}><span className="date-tile"><b>{Number(shift.date.slice(-2))}</b><small>{new Date(`${shift.date}T12:00:00`).toLocaleDateString("zh-HK", { month: "short" })}</small></span><div className="history-copy"><strong>{job?.name ?? shift.jobName ?? "已刪除工作"}</strong><small>{shift.start}—{shift.end}{shift.breakMinutes ? ` · 休息 ${shift.breakMinutes}m` : ""}</small>{(shift.location || shift.sessions) && <span className="shift-meta">{shift.location && <i>⌖ {shift.location}</i>}{shift.sessions && <i>{shift.sessions} 堂／節</i>}</span>}</div><span className="pay"><b>HK${formatMoney(shiftEarnings(shift, job))}</b><small>{formatHours(mins)}</small></span></div>;
             })}</div>
             {!data.shifts.length && !showShiftForm && <p className="empty-history">還未有工時記錄。按「補錄」或直接開始工作。</p>}
           </section>
@@ -544,7 +604,7 @@ export default function Home() {
           <section className="hero diary-hero"><span className="eyebrow">Daily note</span><h1>今天，<br /><em>想留下甚麼？</em></h1><p>{todayLabel}</p></section>
           <section className="card diary-card"><textarea value={diaryText} onChange={e => setDiaryText(e.target.value)} placeholder="寫下一件值得記住的小事、一個念頭，或只是今天的心情……" aria-label="今日日記" /><div className="diary-actions"><span>{diaryText.length} 字</span><button className="primary-button small" onClick={saveDiary}>儲存日記</button></div></section>
           <section className="whisper-card"><span className="eyebrow">Tonight&apos;s whisper</span><blockquote>「生活不是被安排好的日程，<br />而是你願意記住的那些片刻。」</blockquote></section>
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} />
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} holidays={holidays} />
         </>}
       </div>
 

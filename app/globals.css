@@ -94,6 +94,8 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 @keyframes calendar-in { from { opacity: 0; transform: translateX(9px); } }
 .calendar-day { min-width: 0; height: 66px; padding: 6px 2px 4px; border: 0; background: transparent; color: var(--ivory); border-radius: 12px; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; font-family: Georgia, serif; font-size: 13px; position: relative; overflow: hidden; transition: background .25s ease, transform .25s cubic-bezier(.22,1,.36,1); }
 .day-number { position: relative; z-index: 1; min-height: 18px; text-align: center; }
+.calendar-day.holiday .day-number, .calendar-day.sunday .day-number { color: #e66f7b; }
+.holiday-label { display: block; width: 100%; color: #e58a93; font-family: -apple-system, sans-serif; font-size: 6.5px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .calendar-day.selected { background: rgba(241,233,223,.09); }
 .calendar-day:active { transform: scale(.88); }
 .calendar-day.today::before { content: ""; position: absolute; width: 27px; height: 27px; border: 1px solid var(--red); border-radius: 50%; top: 1px; left: 50%; transform: translateX(-50%); }
@@ -122,15 +124,18 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .day-event { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 11px; padding: 14px 0; border-top: 1px solid var(--line); }
 .event-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: rgba(241,233,223,.07); color: var(--muted); font: 13px Georgia, serif; }
 .workout-event .event-icon { background: var(--red-dark); color: var(--ivory); }
+.holiday-event .event-icon { background: #9f3d4a; color: #fff4f1; }
 .day-event div { display: flex; flex-direction: column; gap: 4px; }
 .day-event small { color: var(--dim); font-size: 9px; }
 .day-event strong { font-size: 12px; font-weight: 550; line-height: 1.45; }
 .day-event em { color: var(--muted); font-size: 9px; font-style: normal; }
 .empty-calendar { margin: 24px 0; color: var(--dim); font-family: Georgia, "PingFang HK", serif; text-align: center; font-size: 12px; line-height: 1.75; }
-.calendar-legend { display: flex; justify-content: flex-end; gap: 13px; border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; color: var(--dim); font-size: 8px; }
+.calendar-legend { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; color: var(--dim); font-size: 7px; }
 .calendar-legend span { display: flex; align-items: center; gap: 5px; }
 .calendar-legend i { width: 3px; height: 3px; background: var(--muted); border-radius: 50%; }
 .calendar-legend em { width: 8px; height: 4px; border-radius: 2px; background: #9471c7; }
+.calendar-legend u { width: 5px; height: 5px; border-radius: 50%; background: #e66f7b; text-decoration: none; }
+.holiday-source { margin: 9px 0 -4px; color: var(--dim); font-size: 7px; text-align: right; }
 
 .gym-card { min-height: 166px; padding: 21px; margin-bottom: 18px; display: grid; grid-template-columns: 46px 1fr; gap: 14px; align-items: center; transition: border-color .2s ease, background .2s ease; }
 .gym-card.checked { border-color: rgba(159,61,74,.48); background: linear-gradient(145deg, rgba(54,29,33,.96), rgba(23,17,18,.98)); }
@@ -165,10 +170,14 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .text-button { color: var(--red); font-size: 12px; border: 0; background: transparent; }
 .job-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .job-card { padding: 18px; min-height: 150px; display: flex; flex-direction: column; }
-.job-card i { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 20px; }
+.job-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.job-card-top i { width: 8px; height: 8px; border-radius: 50%; }
+.job-card-top button { padding: 0; border: 0; background: transparent; color: var(--dim); font-size: 8px; }
+.job-card-top button:active { color: var(--red); }
 .job-card > span { color: var(--muted); font-size: 12px; }
 .job-card strong { font-family: Georgia, serif; font-size: 25px; font-weight: 400; margin-top: auto; }
 .job-card small { color: var(--dim); font-size: 9px; margin-top: 5px; }
+.job-error { margin: 10px 3px 0; }
 .compact-form, .shift-form { padding: 18px; margin-bottom: 12px; display: grid; gap: 10px; }
 .compact-form input, .shift-form input, .shift-form select { width: 100%; background: var(--ink); border: 1px solid var(--line); border-radius: 12px; color: var(--ivory); padding: 12px; margin: 0; }
 .compact-form .primary-button, .shift-form .primary-button { margin-top: 4px; }
@@ -176,14 +185,21 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .shift-form label { color: var(--muted); font-size: 10px; display: grid; gap: 6px; }
 .form-error { margin: 0; color: #d9909b; font-size: 10px; line-height: 1.5; }
 .form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.history-summary { margin: 22px 0 5px; padding: 15px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1.35fr .8fr .9fr; gap: 10px; }
+.history-summary > div { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.history-summary small { color: var(--dim); font-size: 8px; letter-spacing: .06em; }
+.history-summary strong { font: 400 17px/1 Georgia, serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.history-summary > div:first-child strong { color: var(--ivory); font-size: 21px; }
 .history-list { margin-top: 14px; }
 .empty-history { margin: 20px 0 4px; color: var(--dim); font-size: 11px; line-height: 1.65; }
-.history-row { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 13px; padding: 15px 0; border-top: 1px solid var(--line); }
+.history-row { display: grid; grid-template-columns: 44px 1fr auto; align-items: start; gap: 13px; padding: 15px 0; border-top: 1px solid var(--line); }
 .date-tile { width: 42px; height: 46px; border: 1px solid var(--line); border-radius: 13px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 .date-tile b { font-family: Georgia, serif; font-size: 17px; font-weight: 400; }
 .date-tile small, .history-row div small, .pay small { color: var(--dim); font-size: 9px; }
 .history-row div { display: flex; flex-direction: column; gap: 5px; }
 .history-row div strong { font-size: 13px; font-weight: 550; }
+.shift-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.shift-meta i { padding: 4px 7px; border-radius: 999px; background: rgba(241,233,223,.055); color: var(--muted); font-size: 8px; font-style: normal; }
 .pay { display: flex; flex-direction: column; text-align: right; gap: 5px; }
 .pay b { font-family: Georgia, serif; font-size: 16px; font-weight: 400; }
 
@@ -194,6 +210,7 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .whisper-card blockquote { font-family: "Iowan Old Style", Baskerville, Georgia, "PingFang HK", serif; font-size: 19px; line-height: 1.65; color: var(--muted); margin: 0; }
 
 .plan-hero h1 { font-size: clamp(42px, 12vw, 58px); }
+.plan-hero-after { margin-top: 44px; }
 .plan-form-card { padding: 24px; margin-bottom: 18px; }
 .plan-form { display: grid; gap: 13px; margin-top: 22px; }
 .plan-form label { display: grid; gap: 7px; color: var(--muted); font-size: 10px; }
