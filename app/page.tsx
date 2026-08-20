@@ -347,7 +347,7 @@ export default function Home() {
         {tab === "home" && <>
           <section className="hero">
             <span className="eyebrow">Good evening</span>
-            <h1>把今天，<br /><em>好好收住。</em></h1>
+            <h1>Remember<br /><em>who you are.</em></h1>
             <p>待辦、工時與心情，都在一個安靜的地方。</p>
           </section>
 

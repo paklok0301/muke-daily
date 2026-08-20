@@ -21,6 +21,7 @@ test("renders the Muke mobile app shell", async () => {
   assert.match(html, /<html lang="zh-HK">/);
   assert.match(html, /<title>暮刻 — 你的日常與工時<\/title>/);
   assert.match(html, /開始工作/);
+  assert.match(html, /Remember.*who you are\./s);
   assert.match(html, /跆拳道/);
   assert.doesNotMatch(html, /咖啡店/);
   assert.match(html, /今天練哪裡/);
