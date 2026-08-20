@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type Tab = "home" | "work" | "diary";
+type Tab = "home" | "plan" | "work" | "diary";
 type Job = { id: string; name: string; rate: number; color: string };
 type Shift = {
   id: string;
@@ -13,12 +13,14 @@ type Shift = {
   breakMinutes: number;
 };
 type Task = { id: string; text: string; done: boolean };
+type PlanItem = { id: string; activity: string; date: string; time: string; color: string; done: boolean; notified: boolean };
 type RunningShift = { jobId: string; startedAt: number } | null;
 type WorkoutType = "胸" | "背" | "肩" | "腿";
 type AppData = {
   jobs: Job[];
   shifts: Shift[];
   tasks: Task[];
+  plans: PlanItem[];
   diary: Record<string, string>;
   workouts: Record<string, WorkoutType>;
   runningShift: RunningShift;
@@ -26,6 +28,8 @@ type AppData = {
 
 const STORAGE_KEY = "muke-app-v1";
 const accentColors = ["#9f3d4a", "#b48062", "#767a8a", "#786472"];
+const planColors = ["#d75b68", "#dd8b51", "#c7ad4b", "#65ad7b", "#4ea2aa", "#6683cf", "#9471c7", "#cc66a3"];
+const planColorNames = ["珊瑚紅", "琥珀橙", "麥穗金", "翡翠綠", "湖水藍", "靛青藍", "紫藤紫", "玫瑰粉"];
 
 const pad = (value: number) => String(value).padStart(2, "0");
 const isoDate = (date = new Date()) =>
@@ -41,6 +45,7 @@ const defaultData: AppData = {
     { id: "task-1", text: "確認週末兼職時間", done: false },
     { id: "task-2", text: "整理本週開支", done: false },
   ],
+  plans: [],
   diary: {},
   workouts: {},
   runningShift: null,
@@ -92,13 +97,14 @@ function useClock(running: RunningShift) {
 }
 
 function MiniCalendar({
-  markedDates, workouts, shifts, jobs, diary,
+  markedDates, workouts, shifts, jobs, diary, plans,
 }: {
   markedDates: Set<string>;
   workouts: Record<string, WorkoutType>;
   shifts: Shift[];
   jobs: Job[];
   diary: Record<string, string>;
+  plans: PlanItem[];
 }) {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [selected, setSelected] = useState(isoDate());
@@ -112,6 +118,7 @@ function MiniCalendar({
   const weekStart = addDays(selectedDate, -selectedDate.getDay());
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const selectedShifts = shifts.filter((shift) => shift.date === selected);
+  const selectedPlans = plans.filter((plan) => plan.date === selected && !plan.done).sort((a, b) => a.time.localeCompare(b.time));
 
   const title = view === "month"
     ? selectedDate.toLocaleDateString("zh-HK", { year: "numeric", month: "long" })
@@ -151,8 +158,12 @@ function MiniCalendar({
           {cells.map((day, index) => {
             const key = day ? `${year}-${pad(month + 1)}-${pad(day)}` : `blank-${index}`;
             if (!day) return <span key={key} />;
+            const dayPlans = plans.filter((plan) => plan.date === key && !plan.done).sort((a, b) => a.time.localeCompare(b.time));
             return <button key={key} aria-label={`${month + 1}月${day}日`} onClick={() => setSelected(key)} className={`calendar-day ${key === todayKey ? "today" : ""} ${key === selected ? "selected" : ""}`}>
-              <span>{day}</span><span className="date-marks">{markedDates.has(key) && <i />}{workouts[key] && <b aria-label={`當日是${workouts[key]}日`} title={`${workouts[key]}日`} />}</span>
+              <span className="day-number">{day}</span>
+              {dayPlans.slice(0, 1).map((plan) => <span className="calendar-plan-bar" style={{ background: plan.color }} key={plan.id}>{plan.time} {plan.activity}</span>)}
+              {dayPlans.length > 1 && <span className="more-plans">＋{dayPlans.length - 1}</span>}
+              <span className="date-marks">{markedDates.has(key) && !dayPlans.length && <i />}{workouts[key] && <b aria-label={`當日是${workouts[key]}日`} title={`${workouts[key]}日`} />}</span>
             </button>;
           })}
         </div>
@@ -161,27 +172,30 @@ function MiniCalendar({
       {view === "week" && <div className="week-view">
         <div className="week-strip">{weekDays.map((date) => {
           const key = isoDate(date);
+          const firstPlan = plans.find((plan) => plan.date === key && !plan.done);
           return <button key={key} className={`${key === selected ? "selected" : ""} ${key === todayKey ? "today" : ""}`} onClick={() => setSelected(key)}>
-            <small>{date.toLocaleDateString("zh-HK", { weekday: "narrow" })}</small><strong>{date.getDate()}</strong><span>{hasActivity(key) && <i />}{workouts[key] && <b />}</span>
+            <small>{date.toLocaleDateString("zh-HK", { weekday: "narrow" })}</small><strong>{date.getDate()}</strong><span>{hasActivity(key) && <i style={firstPlan ? { background: firstPlan.color } : undefined} />}{workouts[key] && <b />}</span>
           </button>;
         })}</div>
         <div className="week-summary">
           {weekDays.filter((date) => hasActivity(isoDate(date))).map((date) => {
             const key = isoDate(date);
             const count = shifts.filter((shift) => shift.date === key).length;
-            return <button key={key} onClick={() => { setSelected(key); setView("day"); }}><span>{date.toLocaleDateString("zh-HK", { weekday: "short", day: "numeric" })}</span><strong>{[count ? `${count} 段工時` : "", workouts[key] ? `${workouts[key]}日` : "", diary[key]?.trim() ? "有日記" : ""].filter(Boolean).join(" · ")}</strong><em>›</em></button>;
+            const planCount = plans.filter((plan) => plan.date === key && !plan.done).length;
+            return <button key={key} onClick={() => { setSelected(key); setView("day"); }}><span>{date.toLocaleDateString("zh-HK", { weekday: "short", day: "numeric" })}</span><strong>{[planCount ? `${planCount} 項計劃` : "", count ? `${count} 段工時` : "", workouts[key] ? `${workouts[key]}日` : "", diary[key]?.trim() ? "有日記" : ""].filter(Boolean).join(" · ")}</strong><em>›</em></button>;
           })}
           {!weekDays.some((date) => hasActivity(isoDate(date))) && <p className="empty-calendar">本週尚未有記錄</p>}
         </div>
       </div>}
 
       {view === "day" && <div className="day-view">
+        {selectedPlans.map((plan) => <div className="day-event plan-event" key={plan.id}><span className="event-icon" style={{ background: plan.color }}>行</span><div><small>計劃 · {plan.time}</small><strong>{plan.activity}</strong></div></div>)}
         {workouts[selected] && <div className="day-event workout-event"><span className="event-icon">練</span><div><small>健身</small><strong>{workouts[selected]}日訓練</strong></div></div>}
         {selectedShifts.map((shift) => <div className="day-event" key={shift.id}><span className="event-icon">時</span><div><small>{jobs.find((job) => job.id === shift.jobId)?.name ?? "兼職"}</small><strong>{shift.start} — {shift.end}</strong></div><em>{formatHours(minutesBetween(shift.start, shift.end, shift.breakMinutes))}</em></div>)}
         {diary[selected]?.trim() && <div className="day-event"><span className="event-icon">記</span><div><small>日記</small><strong>{diary[selected].slice(0, 42)}{diary[selected].length > 42 ? "…" : ""}</strong></div></div>}
         {!hasActivity(selected) && <p className="empty-calendar">這天還沒有記錄。<br />留白也可以是一種休息。</p>}
       </div>}
-      <div className="calendar-legend"><span><i />日記／工時</span><span><b />健身</span></div>
+      <div className="calendar-legend"><span><i />日記／工時</span><span><em />彩色活動</span><span><b />健身</span></div>
     </section>
   );
 }
@@ -192,6 +206,12 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [taskText, setTaskText] = useState("");
   const [diaryText, setDiaryText] = useState("");
+  const [planActivity, setPlanActivity] = useState("");
+  const [planDate, setPlanDate] = useState(isoDate(addDays(new Date(), 1)));
+  const [planTime, setPlanTime] = useState("09:00");
+  const [planColor, setPlanColor] = useState(planColors[4]);
+  const [planError, setPlanError] = useState("");
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [showJobForm, setShowJobForm] = useState(false);
   const [jobName, setJobName] = useState("");
@@ -217,6 +237,7 @@ export default function Home() {
           ...parsed,
           jobs: migratedJobs,
           shifts: (parsed.shifts ?? []).filter((shift) => !shift.id.startsWith("sample-")).map((shift) => shift.jobId === "cafe" ? { ...shift, jobId: "taekwondo" } : shift),
+          plans: (parsed.plans ?? []).map((plan, index) => ({ ...plan, color: plan.color ?? planColors[index % planColors.length] })),
           runningShift: parsed.runningShift?.jobId === "cafe" ? { ...parsed.runningShift, jobId: "taekwondo" } : (parsed.runningShift ?? null),
           workouts: migratedWorkouts as Record<string, WorkoutType>,
         };
@@ -224,6 +245,7 @@ export default function Home() {
     } catch {}
     setData(nextData);
     setDiaryText(nextData.diary[isoDate()] ?? "");
+    if ("Notification" in window) setNotificationPermission(Notification.permission);
     setHydrated(true);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   }, []);
@@ -232,6 +254,27 @@ export default function Home() {
     if (!hydrated) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [data, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || notificationPermission !== "granted") return;
+    const notifyDuePlans = () => {
+      const now = Date.now();
+      const dueIds = data.plans.filter((plan) => !plan.done && !plan.notified && new Date(`${plan.date}T${plan.time}:00`).getTime() <= now).map((plan) => plan.id);
+      if (!dueIds.length) return;
+      for (const plan of data.plans.filter((item) => dueIds.includes(item.id))) {
+        navigator.serviceWorker.ready.then((registration) => registration.showNotification("暮刻提醒", {
+          body: `${plan.time} · ${plan.activity}`,
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: `plan-${plan.id}`,
+        })).catch(() => undefined);
+      }
+      setData((prev) => ({ ...prev, plans: prev.plans.map((plan) => dueIds.includes(plan.id) ? { ...plan, notified: true } : plan) }));
+    };
+    notifyDuePlans();
+    const timer = window.setInterval(notifyDuePlans, 30_000);
+    return () => window.clearInterval(timer);
+  }, [data.plans, hydrated, notificationPermission]);
 
   const totals = useMemo(() => {
     const month = startOfMonth();
@@ -253,11 +296,13 @@ export default function Home() {
 
   const markedDates = useMemo(() => new Set([
     ...data.shifts.map((item) => item.date),
+    ...data.plans.filter((item) => !item.done).map((item) => item.date),
     ...Object.keys(data.diary).filter((key) => data.diary[key]?.trim()),
-  ]), [data.diary, data.shifts]);
+  ]), [data.diary, data.plans, data.shifts]);
   const workoutToday = data.workouts?.[isoDate()];
 
   const currentJob = data.jobs.find((job) => job.id === (data.runningShift?.jobId ?? selectedJob)) ?? data.jobs[0];
+  const sortedPlans = useMemo(() => [...data.plans].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)), [data.plans]);
 
   function addTask(event: FormEvent) {
     event.preventDefault();
@@ -268,6 +313,56 @@ export default function Home() {
 
   function toggleTask(id: string) {
     setData((prev) => ({ ...prev, tasks: prev.tasks.map((task) => task.id === id ? { ...task, done: !task.done } : task) }));
+  }
+
+  function addPlan(event: FormEvent) {
+    event.preventDefault();
+    if (!planActivity.trim() || !planDate || !planTime) {
+      setPlanError("請填寫活動、日期和確實時間。");
+      return;
+    }
+    setPlanError("");
+    setData((prev) => ({
+      ...prev,
+      plans: [...prev.plans, { id: crypto.randomUUID(), activity: planActivity.trim(), date: planDate, time: planTime, color: planColor, done: false, notified: false }],
+    }));
+    setPlanActivity("");
+  }
+
+  function togglePlan(id: string) {
+    setData((prev) => ({ ...prev, plans: prev.plans.map((plan) => plan.id === id ? { ...plan, done: !plan.done } : plan) }));
+  }
+
+  function deletePlan(id: string) {
+    setData((prev) => ({ ...prev, plans: prev.plans.filter((plan) => plan.id !== id) }));
+  }
+
+  async function enableNotifications() {
+    if (!("Notification" in window)) {
+      setPlanError("這個瀏覽器不支援通知；你仍可把項目加入手機行事曆。");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+  }
+
+  function addToPhoneCalendar(plan: PlanItem) {
+    const start = new Date(`${plan.date}T${plan.time}:00`);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const calendarTime = (date: Date) => `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}00`;
+    const safeActivity = plan.activity.replaceAll("\\", "\\\\").replaceAll(",", "\\,").replaceAll(";", "\\;").replaceAll("\n", "\\n");
+    const content = [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Muke//Plan//ZH-HK", "BEGIN:VEVENT",
+      `UID:${plan.id}@muke`, `DTSTART:${calendarTime(start)}`, `DTEND:${calendarTime(end)}`,
+      `SUMMARY:${safeActivity}`, "BEGIN:VALARM", "TRIGGER:-PT10M", "ACTION:DISPLAY", `DESCRIPTION:${safeActivity}`, "END:VALARM",
+      "END:VEVENT", "END:VCALENDAR",
+    ].join("\r\n");
+    const url = URL.createObjectURL(new Blob([content], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${plan.date}-${plan.time.replace(":", "")}-暮刻.ics`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function toggleClock() {
@@ -377,7 +472,38 @@ export default function Home() {
             </div>
             <form className="quick-add" onSubmit={addTask}><input value={taskText} onChange={(e) => setTaskText(e.target.value)} placeholder="記一件今天要做的事…" aria-label="新增待辦" /><button aria-label="加入待辦">↗</button></form>
           </section>
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} />
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} />
+        </>}
+
+        {tab === "plan" && <>
+          <section className="hero plan-hero"><span className="eyebrow">Plan ahead</span><h1>留一個位置，<br /><em>給未來的事。</em></h1><p>準確日期、時間、活動與顏色，一眼便看懂。</p></section>
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} />
+
+          <section className="card plan-form-card">
+            <div className="section-heading"><div><span className="eyebrow">New event</span><h2>新增活動</h2></div><span className="count">＋</span></div>
+            <form className="plan-form" onSubmit={addPlan}>
+              <label>活動<input value={planActivity} onChange={(event) => setPlanActivity(event.target.value)} placeholder="例如：跆拳道訓練" aria-label="活動名稱" /></label>
+              <div className="form-pair"><label>日期<input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} /></label><label>確實時間<input type="time" value={planTime} onChange={(event) => setPlanTime(event.target.value)} /></label></div>
+              <fieldset className="color-picker"><legend>活動顏色</legend><div>{planColors.map((color, index) => <button type="button" key={color} aria-label={`選擇${planColorNames[index]}`} title={planColorNames[index]} aria-pressed={planColor === color} className={planColor === color ? "selected" : ""} style={{ background: color }} onClick={() => setPlanColor(color)} />)}</div></fieldset>
+              {planError && <p className="form-error" role="alert">{planError}</p>}
+              <button className="primary-button" type="submit">加入計劃</button>
+            </form>
+          </section>
+
+          <section className="card notification-card">
+            <div><span className="eyebrow">Reminder</span><h2>{notificationPermission === "granted" ? "到點通知已開啟" : "不要錯過這件事"}</h2><p>開啟 App 通知；再把重要項目加入手機行事曆，即使 App 關閉也會可靠提醒。</p></div>
+            <button className="quiet-action" onClick={enableNotifications} disabled={notificationPermission !== "default"}>{notificationPermission === "granted" ? "已開啟" : notificationPermission === "denied" ? "到設定開啟" : "開啟通知"}</button>
+          </section>
+
+          <section className="section-block plan-list-section">
+            <div className="outside-heading"><div><span className="eyebrow">Upcoming</span><h2>接下來</h2></div><span className="plan-total">{data.plans.filter((plan) => !plan.done).length} 項</span></div>
+            <div className="plan-list">{sortedPlans.map((plan) => <article className={`card plan-row ${plan.done ? "done" : ""}`} key={plan.id} style={{ borderLeftColor: plan.color }}>
+              <button className="plan-check" aria-label={plan.done ? "標記為未完成" : "標記為完成"} onClick={() => togglePlan(plan.id)}><span /></button>
+              <div className="plan-copy"><small>{parseIso(plan.date).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })}</small><strong>{plan.time}</strong><p>{plan.activity}</p></div>
+              <div className="plan-actions"><button onClick={() => addToPhoneCalendar(plan)} aria-label={`把${plan.activity}加入手機行事曆`}>加入行事曆</button><button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
+            </article>)}</div>
+            {!sortedPlans.length && <p className="empty-plans">暫時沒有未來活動。<br />把下一件重要的事放進來吧。</p>}
+          </section>
         </>}
 
         {tab === "work" && <>
@@ -418,12 +544,13 @@ export default function Home() {
           <section className="hero diary-hero"><span className="eyebrow">Daily note</span><h1>今天，<br /><em>想留下甚麼？</em></h1><p>{todayLabel}</p></section>
           <section className="card diary-card"><textarea value={diaryText} onChange={e => setDiaryText(e.target.value)} placeholder="寫下一件值得記住的小事、一個念頭，或只是今天的心情……" aria-label="今日日記" /><div className="diary-actions"><span>{diaryText.length} 字</span><button className="primary-button small" onClick={saveDiary}>儲存日記</button></div></section>
           <section className="whisper-card"><span className="eyebrow">Tonight&apos;s whisper</span><blockquote>「生活不是被安排好的日程，<br />而是你願意記住的那些片刻。」</blockquote></section>
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} />
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} />
         </>}
       </div>
 
       <nav className="bottom-nav" aria-label="主要導覽">
         <button className={tab === "home" ? "active" : ""} onClick={() => changeTab("home")}><span>⌂</span>今天</button>
+        <button className={tab === "plan" ? "active" : ""} onClick={() => changeTab("plan")}><span>◇</span>計劃</button>
         <button className={tab === "work" ? "active" : ""} onClick={() => changeTab("work")}><span>◷</span>工時</button>
         <button className={tab === "diary" ? "active" : ""} onClick={() => changeTab("diary")}><span>✦</span>日記</button>
       </nav>

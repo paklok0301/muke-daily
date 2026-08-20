@@ -29,6 +29,7 @@ test("renders the Muke mobile app shell", async () => {
   assert.match(html, /aria-label="生活月曆"/);
   assert.match(html, /aria-label="月曆檢視"/);
   assert.match(html, />月<\/button>.*>週<\/button>.*>日<\/button>/s);
+  assert.match(html, />計劃<\/button>/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
 
@@ -45,8 +46,12 @@ test("ships installable app assets and local persistence", async () => {
   assert.doesNotMatch(page, /setDiaryText\(data\.diary\[isoDate\(\)\]/);
   assert.match(page, /工時需要大於 0 分鐘/);
   assert.match(page, /startViewTransition/);
+  assert.match(page, /planColors = \[/);
+  assert.match(page, /showNotification\("暮刻提醒"/);
+  assert.match(page, /text\/calendar/);
   assert.match(manifest, /display:\s*"standalone"/);
   assert.match(serviceWorker, /caches\.open/);
+  assert.match(serviceWorker, /notificationclick/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await Promise.all([
     access(new URL("../public/icon-192.png", import.meta.url)),
