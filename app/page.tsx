@@ -19,7 +19,6 @@ type Shift = {
 };
 type Task = { id: string; text: string; done: boolean };
 type PlanItem = { id: string; activity: string; date: string; time: string; color: string; done: boolean; notified: boolean };
-type RunningShift = { jobId: string; startedAt: number } | null;
 type WorkoutType = "胸" | "背" | "肩" | "腿";
 type AppData = {
   jobs: Job[];
@@ -28,7 +27,6 @@ type AppData = {
   plans: PlanItem[];
   diary: Record<string, string>;
   workouts: Record<string, WorkoutType>;
-  runningShift: RunningShift;
 };
 
 const STORAGE_KEY = "muke-app-v1";
@@ -53,7 +51,6 @@ const defaultData: AppData = {
   plans: [],
   diary: {},
   workouts: {},
-  runningShift: null,
 };
 
 function minutesBetween(start: string, end: string, breakMinutes = 0) {
@@ -92,18 +89,6 @@ function addDays(date: Date, amount: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + amount);
   return next;
-}
-
-function useClock(running: RunningShift) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!running) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [running]);
-  if (!running) return "00:00:00";
-  const seconds = Math.max(0, Math.floor((now - running.startedAt) / 1000));
-  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
 }
 
 function MiniCalendar({
@@ -246,14 +231,14 @@ export default function Home() {
   const [shiftSessions, setShiftSessions] = useState("1");
   const [shiftAmount, setShiftAmount] = useState("");
   const [shiftError, setShiftError] = useState("");
-  const elapsed = useClock(data.runningShift);
 
   useEffect(() => {
     let nextData = defaultData;
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as Partial<AppData> & { gymDates?: string[] };
+        const parsed = JSON.parse(stored) as Partial<AppData> & { gymDates?: string[]; runningShift?: unknown };
+        delete parsed.runningShift;
         const migratedWorkouts = parsed.workouts ?? Object.fromEntries((parsed.gymDates ?? []).map((date) => [date, "腿"]));
         const migratedJobs = (parsed.jobs ?? defaultData.jobs).map((job) => job.id === "cafe" || job.name === "咖啡店" ? { ...job, id: "taekwondo", name: "跆拳道" } : job);
         nextData = {
@@ -262,7 +247,6 @@ export default function Home() {
           jobs: migratedJobs,
           shifts: (parsed.shifts ?? []).filter((shift) => !shift.id.startsWith("sample-")).map((shift) => shift.jobId === "cafe" ? { ...shift, jobId: "taekwondo" } : shift),
           plans: (parsed.plans ?? []).map((plan, index) => ({ ...plan, color: plan.color ?? planColors[index % planColors.length] })),
-          runningShift: parsed.runningShift?.jobId === "cafe" ? { ...parsed.runningShift, jobId: "taekwondo" } : (parsed.runningShift ?? null),
           workouts: migratedWorkouts as Record<string, WorkoutType>,
         };
       }
@@ -335,7 +319,6 @@ export default function Home() {
   ]), [data.diary, data.plans, data.shifts]);
   const workoutToday = data.workouts?.[isoDate()];
 
-  const currentJob = data.jobs.find((job) => job.id === (data.runningShift?.jobId ?? selectedJob)) ?? data.jobs[0];
   const sortedPlans = useMemo(() => [...data.plans].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)), [data.plans]);
 
   function addTask(event: FormEvent) {
@@ -399,27 +382,6 @@ export default function Home() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function toggleClock() {
-    if (!data.runningShift) {
-      setData((prev) => ({ ...prev, runningShift: { jobId: selectedJob, startedAt: Date.now() } }));
-      return;
-    }
-    const started = new Date(data.runningShift.startedAt);
-    const ended = new Date();
-    const running = data.runningShift;
-    const finishedJob = data.jobs.find((job) => job.id === running.jobId);
-    setData((prev) => ({
-      ...prev,
-      runningShift: null,
-      shifts: [{
-        id: crypto.randomUUID(), jobId: running.jobId, date: isoDate(started),
-        start: `${pad(started.getHours())}:${pad(started.getMinutes())}`,
-        end: `${pad(ended.getHours())}:${pad(ended.getMinutes())}`, breakMinutes: 0,
-        jobName: finishedJob?.name, rate: finishedJob?.rate,
-      }, ...prev.shifts],
-    }));
-  }
-
   function saveShift() {
     const duration = minutesBetween(shiftStart, shiftEnd, Number(breakMinutes) || 0);
     if (shiftStart === shiftEnd || duration <= 0) {
@@ -456,10 +418,6 @@ export default function Home() {
     if (!job) return;
     if (data.jobs.length <= 1) {
       setJobError("至少需要保留一個工作。");
-      return;
-    }
-    if (data.runningShift?.jobId === id) {
-      setJobError("這個工作正在計時，請先結束工作再刪除。");
       return;
     }
     if (!window.confirm(`確定刪除「${job.name}」？過往工時記錄會保留。`)) return;
@@ -564,12 +522,6 @@ export default function Home() {
 
         {tab === "work" && <>
           <section className="hero work-hero"><span className="eyebrow">{monthLabel} · Work</span><h1><small>HK$</small>{formatMoney(totals.pay)}</h1><p>本月預計收入 · {formatHours(totals.minutes)}</p></section>
-          <section className={`card clock-card work-clock ${data.runningShift ? "is-running" : ""}`}>
-            <div className="time-scale"><span /><span /><span /><span /><span /><span /><i style={{ width: data.runningShift ? "68%" : "14%" }} /></div>
-            <div className="clock-copy"><span className="eyebrow">Quick clock</span><strong>{data.runningShift ? elapsed : "準備好了嗎？"}</strong><span>{currentJob?.name} · HK${currentJob?.rate}/小時</span></div>
-            <select aria-label="選擇兼職" disabled={Boolean(data.runningShift)} value={selectedJob} onChange={(e) => setSelectedJob(e.target.value)}>{data.jobs.map((job) => <option key={job.id} value={job.id}>{job.name}</option>)}</select>
-            <button className="primary-button" onClick={toggleClock}>{data.runningShift ? "結束並儲存" : "開始工作"}</button>
-          </section>
 
           <section className="section-block">
             <div className="outside-heading"><div><span className="eyebrow">Jobs</span><h2>我的兼職</h2></div><button className="text-button" onClick={() => setShowJobForm(!showJobForm)}>＋ 新增</button></div>
@@ -596,7 +548,7 @@ export default function Home() {
               const mins = minutesBetween(shift.start, shift.end, shift.breakMinutes);
               return <div className="history-row" key={shift.id}><span className="date-tile"><b>{Number(shift.date.slice(-2))}</b><small>{new Date(`${shift.date}T12:00:00`).toLocaleDateString("zh-HK", { month: "short" })}</small></span><div className="history-copy"><strong>{job?.name ?? shift.jobName ?? "已刪除工作"}</strong><small>{shift.start}—{shift.end}{shift.breakMinutes ? ` · 休息 ${shift.breakMinutes}m` : ""}</small>{(shift.location || shift.sessions) && <span className="shift-meta">{shift.location && <i>⌖ {shift.location}</i>}{shift.sessions && <i>{shift.sessions} 堂／節</i>}</span>}</div><span className="pay"><b>HK${formatMoney(shiftEarnings(shift, job))}</b><small>{formatHours(mins)}</small></span></div>;
             })}</div>
-            {!data.shifts.length && !showShiftForm && <p className="empty-history">還未有工時記錄。按「補錄」或直接開始工作。</p>}
+            {!data.shifts.length && !showShiftForm && <p className="empty-history">還未有工時記錄。按「補錄」加入第一次記錄。</p>}
           </section>
         </>}
 

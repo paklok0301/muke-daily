@@ -41,7 +41,7 @@ test("ships installable app assets and local persistence", async () => {
     readFile(new URL("../app/api/hk-holidays/route.ts", import.meta.url), "utf8"),
   ]);
   assert.match(page, /localStorage\.setItem/);
-  assert.match(page, /開始工作/);
+  assert.doesNotMatch(page, /開始工作|Quick clock|toggleClock|useClock/);
   assert.match(page, /跆拳道/);
   assert.match(page, /serviceWorker\.register/);
   assert.match(page, /workouts:\s*Record<string, WorkoutType>/);
