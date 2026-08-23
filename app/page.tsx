@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 type Tab = "home" | "plan" | "work" | "diary";
 type Job = { id: string; name: string; rate: number; color: string };
@@ -217,6 +217,8 @@ export default function Home() {
   const [planError, setPlanError] = useState("");
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
   const [holidays, setHolidays] = useState<Record<string, string>>({});
+  const [showDataTools, setShowDataTools] = useState(false);
+  const [dataMessage, setDataMessage] = useState("");
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [showJobForm, setShowJobForm] = useState(false);
   const [jobName, setJobName] = useState("");
@@ -445,6 +447,43 @@ export default function Home() {
     });
   }
 
+  function exportData() {
+    const backup = JSON.stringify({ app: "暮刻", version: 1, exportedAt: new Date().toISOString(), data }, null, 2);
+    const url = URL.createObjectURL(new Blob([backup], { type: "application/json;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `暮刻備份-${isoDate()}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setDataMessage("備份已下載，可以在新網址匯入。");
+  }
+
+  async function importData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!window.confirm("匯入會取代這部裝置目前的暮刻資料，確定繼續？")) return;
+    try {
+      const payload = JSON.parse(await file.text()) as { data?: Partial<AppData> } | Partial<AppData>;
+      const imported = "data" in payload && payload.data ? payload.data : payload;
+      if (!Array.isArray(imported.jobs) || !imported.jobs.length || !Array.isArray(imported.shifts) || !Array.isArray(imported.tasks) || !Array.isArray(imported.plans)) throw new Error();
+      const restored: AppData = {
+        jobs: imported.jobs,
+        shifts: imported.shifts,
+        tasks: imported.tasks,
+        plans: imported.plans,
+        diary: imported.diary && typeof imported.diary === "object" ? imported.diary : {},
+        workouts: imported.workouts && typeof imported.workouts === "object" ? imported.workouts : {},
+      };
+      setData(restored);
+      setSelectedJob(restored.jobs[0].id);
+      setDiaryText(restored.diary[isoDate()] ?? "");
+      setDataMessage("資料已成功匯入這部裝置。");
+    } catch {
+      setDataMessage("無法匯入：請選擇由暮刻下載的 JSON 備份檔。");
+    }
+  }
+
   function changeTab(next: Tab) {
     const doc = document as Document & { startViewTransition?: (update: () => void) => void };
     if (doc.startViewTransition) doc.startViewTransition(() => setTab(next));
@@ -459,8 +498,21 @@ export default function Home() {
       <div className="ambient ambient-one" /><div className="ambient ambient-two" />
       <header className="topbar">
         <div><span className="brand-mark"><i />暮刻</span><p>{todayLabel}</p></div>
-        <button className="round-button" aria-label="資料儲存在本機"><span className="storage-dot" />本機</button>
+        <button className="round-button" aria-label="開啟資料管理" onClick={() => { setShowDataTools(true); setDataMessage(""); }}><span className="storage-dot" />本機</button>
       </header>
+
+      {showDataTools && <div className="data-overlay" role="presentation" onClick={() => setShowDataTools(false)}>
+        <section className="card data-panel" role="dialog" aria-modal="true" aria-labelledby="data-title" onClick={(event) => event.stopPropagation()}>
+          <div className="data-panel-heading"><div><span className="eyebrow">Local data</span><h2 id="data-title">資料管理</h2></div><button onClick={() => setShowDataTools(false)} aria-label="關閉資料管理">×</button></div>
+          <p>所有記錄只儲存在這部裝置。換網址或換手機前，請先下載備份。</p>
+          <div className="data-actions">
+            <button className="primary-button" onClick={exportData}>下載備份</button>
+            <label className="quiet-action" htmlFor="data-import">匯入備份</label>
+            <input id="data-import" className="visually-hidden" type="file" accept="application/json,.json" onChange={importData} />
+          </div>
+          {dataMessage && <p className="data-message" role="status">{dataMessage}</p>}
+        </section>
+      </div>}
 
       <div className="content" key={tab}>
         {tab === "home" && <>

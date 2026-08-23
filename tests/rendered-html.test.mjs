@@ -44,6 +44,9 @@ test("ships installable app assets and local persistence", async () => {
   assert.doesNotMatch(page, /開始工作|Quick clock|toggleClock|useClock/);
   assert.match(page, /跆拳道/);
   assert.match(page, /serviceWorker\.register/);
+  assert.match(page, /下載備份/);
+  assert.match(page, /匯入備份/);
+  assert.match(page, /暮刻備份-/);
   assert.match(page, /workouts:\s*Record<string, WorkoutType>/);
   assert.doesNotMatch(page, /setDiaryText\(data\.diary\[isoDate\(\)\]/);
   assert.match(page, /工時需要大於 0 分鐘/);
