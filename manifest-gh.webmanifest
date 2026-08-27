@@ -1,0 +1,15 @@
+{
+  "name": "暮刻 — 你的日常與工時",
+  "short_name": "暮刻",
+  "description": "待辦、工時、計劃、健身與日記，都在一個安靜的地方。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0a0a",
+  "theme_color": "#0b0a0a",
+  "lang": "zh-HK",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
