@@ -1,4 +1,4 @@
-const CACHE = "muke-v3";
+const CACHE = "muke-v4";
 const scoped = (path) => new URL(path, self.registration.scope).toString();
 const CORE = [scoped("./"), scoped("icon-192.png"), scoped("icon-512.png")];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)).then(() => self.skipWaiting())));
