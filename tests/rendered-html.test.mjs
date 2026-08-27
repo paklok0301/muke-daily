@@ -58,10 +58,17 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(page, /實收金額 HK\$/);
   assert.match(page, /shiftEarnings\(shift, job\)/);
   assert.match(page, /shiftLocation\.trim\(\)/);
-  assert.match(page, /本月工作結算/);
+  assert.match(page, /所選月份工作結算/);
   assert.match(page, /sessions \+= shift\.sessions/);
   assert.match(page, /function deleteJob/);
   assert.match(page, /function deleteShift/);
+  assert.match(page, /function startEditShift/);
+  assert.match(page, /function clearCompletedTasks/);
+  assert.match(page, /navigator\.storage\.persist/);
+  assert.match(page, /setAppBadge/);
+  assert.match(page, /這段工時似乎已經記錄過/);
+  assert.match(page, /今天摘要/);
+  assert.match(page, /workMonth/);
   assert.match(page, /刪除\$\{shift\.date\}工時記錄/);
   assert.match(page, /至少需要保留一個工作/);
   assert.match(page, /過往工時記錄會保留/);
@@ -69,6 +76,7 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(page, /new URL\("hk-holidays\.json", document\.baseURI\)/);
   assert.match(page, /setView\("day"\)/);
   assert.match(manifest, /display:\s*"standalone"/);
+  assert.match(manifest, /purpose:\s*"maskable"/);
   assert.match(serviceWorker, /caches\.open/);
   assert.match(serviceWorker, /notificationclick/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
@@ -78,5 +86,6 @@ test("ships installable app assets and local persistence", async () => {
     access(new URL("../public/icon-192.png", import.meta.url)),
     access(new URL("../public/icon-512.png", import.meta.url)),
     access(new URL("../public/apple-touch-icon.png", import.meta.url)),
+    access(new URL("../public/og.png", import.meta.url)),
   ]);
 });

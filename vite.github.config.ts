@@ -10,5 +10,12 @@ export default defineConfig({
   build: {
     outDir: fileURLToPath(new URL("./gh-pages", import.meta.url)),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/app.js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/app.[ext]",
+      },
+    },
   },
 });

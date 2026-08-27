@@ -27,6 +27,7 @@ type AppData = {
   plans: PlanItem[];
   diary: Record<string, string>;
   workouts: Record<string, WorkoutType>;
+  lastBackupAt?: string;
 };
 
 const STORAGE_KEY = "muke-app-v1";
@@ -199,7 +200,7 @@ function MiniCalendar({
         {!hasActivity(selected) && <p className="empty-calendar">這天還沒有記錄。<br />留白也可以是一種休息。</p>}
       </div>}
       <div className="calendar-legend"><span><u />公眾假期</span><span><i />日記／工時</span><span><em />活動</span><span><b />健身</span></div>
-      <p className="holiday-source">假期資料：香港政府 1823 · 每日自動更新</p>
+      <p className="holiday-source">假期資料：香港政府 1823 · 2025–2027</p>
     </section>
   );
 }
@@ -219,7 +220,11 @@ export default function Home() {
   const [holidays, setHolidays] = useState<Record<string, string>>({});
   const [showDataTools, setShowDataTools] = useState(false);
   const [dataMessage, setDataMessage] = useState("");
+  const [storagePersistent, setStoragePersistent] = useState<boolean | null>(null);
+  const [storageMessage, setStorageMessage] = useState("");
   const [showShiftForm, setShowShiftForm] = useState(false);
+  const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
+  const [workMonth, setWorkMonth] = useState(startOfMonth());
   const [showJobForm, setShowJobForm] = useState(false);
   const [jobName, setJobName] = useState("");
   const [jobRate, setJobRate] = useState("");
@@ -253,16 +258,25 @@ export default function Home() {
         };
       }
     } catch {}
+    // Browser-only persisted state can only be hydrated after the server render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(nextData);
     setDiaryText(nextData.diary[isoDate()] ?? "");
     if ("Notification" in window) setNotificationPermission(Notification.permission);
+    navigator.storage?.persisted?.().then(setStoragePersistent).catch(() => setStoragePersistent(null));
     setHydrated(true);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", document.baseURI).pathname).catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // Surface failures from the external browser storage system to the user.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDataMessage("儲存空間不足，請先下載備份並清理瀏覽器空間。");
+    }
   }, [data, hydrated]);
 
   useEffect(() => {
@@ -296,13 +310,21 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [data.plans, hydrated, notificationPermission]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    const badgeNavigator = navigator as Navigator & { setAppBadge?: (value?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+    const today = isoDate();
+    const badgeCount = data.tasks.filter((task) => !task.done).length + data.plans.filter((plan) => !plan.done && plan.date <= today).length;
+    if (badgeCount && badgeNavigator.setAppBadge) badgeNavigator.setAppBadge(badgeCount).catch(() => undefined);
+    else if (!badgeCount && badgeNavigator.clearAppBadge) badgeNavigator.clearAppBadge().catch(() => undefined);
+  }, [data.plans, data.tasks, hydrated]);
+
   const totals = useMemo(() => {
-    const month = startOfMonth();
     let minutes = 0;
     let pay = 0;
     let sessions = 0;
     const byJob: Record<string, { minutes: number; pay: number }> = {};
-    for (const shift of data.shifts.filter((item) => item.date.startsWith(month))) {
+    for (const shift of data.shifts.filter((item) => item.date.startsWith(workMonth))) {
       const shiftMinutes = minutesBetween(shift.start, shift.end, shift.breakMinutes);
       const job = data.jobs.find((item) => item.id === shift.jobId);
       const shiftPay = shiftEarnings(shift, job);
@@ -314,7 +336,7 @@ export default function Home() {
       byJob[shift.jobId].pay += shiftPay;
     }
     return { minutes, pay, sessions, byJob };
-  }, [data.jobs, data.shifts]);
+  }, [data.jobs, data.shifts, workMonth]);
 
   const markedDates = useMemo(() => new Set([
     ...data.shifts.map((item) => item.date),
@@ -324,6 +346,19 @@ export default function Home() {
   const workoutToday = data.workouts?.[isoDate()];
 
   const sortedPlans = useMemo(() => [...data.plans].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)), [data.plans]);
+  const sortedTasks = useMemo(() => [...data.tasks].sort((a, b) => Number(a.done) - Number(b.done)), [data.tasks]);
+  const workShifts = useMemo(() => data.shifts.filter((shift) => shift.date.startsWith(workMonth)).sort((a, b) => `${b.date}T${b.start}`.localeCompare(`${a.date}T${a.start}`)), [data.shifts, workMonth]);
+  const todayPlans = useMemo(() => data.plans.filter((plan) => plan.date === isoDate() && !plan.done).sort((a, b) => a.time.localeCompare(b.time)), [data.plans]);
+  const nextPlan = useMemo(() => {
+    const now = new Date();
+    return [...data.plans].filter((plan) => !plan.done && new Date(`${plan.date}T${plan.time}:00`) >= now).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0];
+  }, [data.plans]);
+  const todayShiftSummary = useMemo(() => data.shifts.filter((shift) => shift.date === isoDate()).reduce((summary, shift) => {
+    const job = data.jobs.find((item) => item.id === shift.jobId);
+    summary.minutes += minutesBetween(shift.start, shift.end, shift.breakMinutes);
+    summary.pay += shiftEarnings(shift, job);
+    return summary;
+  }, { minutes: 0, pay: 0 }), [data.jobs, data.shifts]);
 
   function addTask(event: FormEvent) {
     event.preventDefault();
@@ -334,6 +369,14 @@ export default function Home() {
 
   function toggleTask(id: string) {
     setData((prev) => ({ ...prev, tasks: prev.tasks.map((task) => task.id === id ? { ...task, done: !task.done } : task) }));
+  }
+
+  function deleteTask(id: string) {
+    setData((prev) => ({ ...prev, tasks: prev.tasks.filter((task) => task.id !== id) }));
+  }
+
+  function clearCompletedTasks() {
+    setData((prev) => ({ ...prev, tasks: prev.tasks.filter((task) => !task.done) }));
   }
 
   function addPlan(event: FormEvent) {
@@ -392,20 +435,67 @@ export default function Home() {
       setShiftError("請確認開始、結束及休息時間，工時需要大於 0 分鐘。");
       return;
     }
+    const duplicate = data.shifts.some((shift) => shift.id !== editingShiftId && shift.jobId === selectedJob && shift.date === shiftDate && shift.start === shiftStart && shift.end === shiftEnd);
+    if (duplicate) {
+      setShiftError("這段工時似乎已經記錄過，請先檢查日期和時間。");
+      return;
+    }
     const savedJob = data.jobs.find((job) => job.id === selectedJob);
-    setShiftError("");
-    setData((prev) => ({ ...prev, shifts: [{
-      id: crypto.randomUUID(), jobId: selectedJob, date: shiftDate,
+    const nextShift: Shift = {
+      id: editingShiftId ?? crypto.randomUUID(), jobId: selectedJob, date: shiftDate,
       start: shiftStart, end: shiftEnd, breakMinutes: Number(breakMinutes) || 0,
       jobName: savedJob?.name, rate: savedJob?.rate,
       location: shiftLocation.trim() || undefined,
       sessions: Number(shiftSessions) > 0 ? Number(shiftSessions) : undefined,
       amount: shiftAmount === "" ? undefined : Math.max(0, Number(shiftAmount) || 0),
-    }, ...prev.shifts] }));
+    };
+    setShiftError("");
+    setData((prev) => ({ ...prev, shifts: editingShiftId ? prev.shifts.map((shift) => shift.id === editingShiftId ? nextShift : shift) : [nextShift, ...prev.shifts] }));
     setShiftLocation("");
     setShiftSessions("1");
     setShiftAmount("");
+    setEditingShiftId(null);
     setShowShiftForm(false);
+  }
+
+  function openShiftForm() {
+    setEditingShiftId(null);
+    setSelectedJob(data.jobs[0]?.id ?? "");
+    setShiftDate(workMonth === startOfMonth() ? isoDate() : `${workMonth}-01`);
+    setShiftStart("17:00");
+    setShiftEnd("22:00");
+    setBreakMinutes("0");
+    setShiftLocation("");
+    setShiftSessions("1");
+    setShiftAmount("");
+    setShiftError("");
+    setShowShiftForm(true);
+  }
+
+  function startEditShift(shift: Shift) {
+    setEditingShiftId(shift.id);
+    setSelectedJob(data.jobs.some((job) => job.id === shift.jobId) ? shift.jobId : data.jobs[0]?.id ?? "");
+    setShiftDate(shift.date);
+    setShiftStart(shift.start);
+    setShiftEnd(shift.end);
+    setBreakMinutes(String(shift.breakMinutes));
+    setShiftLocation(shift.location ?? "");
+    setShiftSessions(String(shift.sessions ?? 1));
+    setShiftAmount(typeof shift.amount === "number" ? String(shift.amount) : "");
+    setShiftError("");
+    setShowShiftForm(true);
+  }
+
+  function closeShiftForm() {
+    setShowShiftForm(false);
+    setEditingShiftId(null);
+    setShiftError("");
+  }
+
+  function changeWorkMonth(amount: number) {
+    const [year, month] = workMonth.split("-").map(Number);
+    setWorkMonth(isoDate(new Date(year, month - 1 + amount, 1, 12)).slice(0, 7));
+    closeShiftForm();
   }
 
   function addJob(event: FormEvent) {
@@ -441,6 +531,7 @@ export default function Home() {
     const job = data.jobs.find((item) => item.id === shift.jobId);
     if (!window.confirm(`確定刪除 ${shift.date} 的「${job?.name ?? shift.jobName ?? "工時"}」記錄？`)) return;
     setData((prev) => ({ ...prev, shifts: prev.shifts.filter((item) => item.id !== id) }));
+    if (editingShiftId === id) closeShiftForm();
   }
 
   function saveDiary() {
@@ -458,14 +549,32 @@ export default function Home() {
   }
 
   function exportData() {
-    const backup = JSON.stringify({ app: "暮刻", version: 1, exportedAt: new Date().toISOString(), data }, null, 2);
+    const exportedAt = new Date().toISOString();
+    const nextData = { ...data, lastBackupAt: exportedAt };
+    const backup = JSON.stringify({ app: "暮刻", version: 1, exportedAt, data: nextData }, null, 2);
     const url = URL.createObjectURL(new Blob([backup], { type: "application/json;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = `暮刻備份-${isoDate()}.json`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setData(nextData);
     setDataMessage("備份已下載，可以在新網址匯入。");
+  }
+
+  async function protectStorage() {
+    setStorageMessage("");
+    if (!navigator.storage?.persist) {
+      setStorageMessage("這個瀏覽器未提供資料保護功能，請定期下載備份。");
+      return;
+    }
+    try {
+      const persistent = await navigator.storage.persist();
+      setStoragePersistent(persistent);
+      setStorageMessage(persistent ? "已加強保護；資料只會在你主動清除時移除。" : "瀏覽器暫未批准，繼續使用 App 後可再試，並請定期備份。");
+    } catch {
+      setStorageMessage("未能開啟資料保護，請定期下載備份。");
+    }
   }
 
   async function importData(event: ChangeEvent<HTMLInputElement>) {
@@ -474,8 +583,8 @@ export default function Home() {
     if (!file) return;
     if (!window.confirm("匯入會取代這部裝置目前的暮刻資料，確定繼續？")) return;
     try {
-      const payload = JSON.parse(await file.text()) as { data?: Partial<AppData> } | Partial<AppData>;
-      const imported = "data" in payload && payload.data ? payload.data : payload;
+      const payload = JSON.parse(await file.text()) as Partial<AppData> & { data?: Partial<AppData> };
+      const imported: Partial<AppData> = payload.data ?? payload;
       if (!Array.isArray(imported.jobs) || !imported.jobs.length || !Array.isArray(imported.shifts) || !Array.isArray(imported.tasks) || !Array.isArray(imported.plans)) throw new Error();
       const restored: AppData = {
         jobs: imported.jobs,
@@ -484,6 +593,7 @@ export default function Home() {
         plans: imported.plans,
         diary: imported.diary && typeof imported.diary === "object" ? imported.diary : {},
         workouts: imported.workouts && typeof imported.workouts === "object" ? imported.workouts : {},
+        lastBackupAt: typeof imported.lastBackupAt === "string" ? imported.lastBackupAt : undefined,
       };
       setData(restored);
       setSelectedJob(restored.jobs[0].id);
@@ -501,7 +611,7 @@ export default function Home() {
   }
 
   const todayLabel = new Date().toLocaleDateString("zh-HK", { weekday: "long", month: "long", day: "numeric" });
-  const monthLabel = new Date().toLocaleDateString("zh-HK", { month: "long" });
+  const workMonthLabel = parseIso(`${workMonth}-01`).toLocaleDateString("zh-HK", { year: "numeric", month: "long" });
 
   return (
     <main className="app-shell">
@@ -514,12 +624,15 @@ export default function Home() {
       {showDataTools && <div className="data-overlay" role="presentation" onClick={() => setShowDataTools(false)}>
         <section className="card data-panel" role="dialog" aria-modal="true" aria-labelledby="data-title" onClick={(event) => event.stopPropagation()}>
           <div className="data-panel-heading"><div><span className="eyebrow">Local data</span><h2 id="data-title">資料管理</h2></div><button onClick={() => setShowDataTools(false)} aria-label="關閉資料管理">×</button></div>
-          <p>所有記錄只儲存在這部裝置。換網址或換手機前，請先下載備份。</p>
+          <p>所有記錄只儲存在這部裝置。可先開啟資料保護；換網址、換手機或清理瀏覽器前，請下載備份。</p>
           <div className="data-actions">
             <button className="primary-button" onClick={exportData}>下載備份</button>
             <label className="quiet-action" htmlFor="data-import">匯入備份</label>
             <input id="data-import" className="visually-hidden" type="file" accept="application/json,.json" onChange={importData} />
+            <button className="quiet-action data-protect" onClick={protectStorage} disabled={storagePersistent === true}>{storagePersistent ? "資料保護已開啟" : "開啟資料保護"}</button>
           </div>
+          {data.lastBackupAt && <p className="backup-date">上次備份：{new Date(data.lastBackupAt).toLocaleString("zh-HK", { dateStyle: "medium", timeStyle: "short" })}</p>}
+          {storageMessage && <p className="data-message" role="status">{storageMessage}</p>}
           {dataMessage && <p className="data-message" role="status">{dataMessage}</p>}
         </section>
       </div>}
@@ -534,6 +647,18 @@ export default function Home() {
 
           <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} holidays={holidays} />
 
+          <section className="card daily-brief-card">
+            <div className="section-heading"><div><span className="eyebrow">At a glance</span><h2>今天摘要</h2></div><span className="brief-date">{new Date().toLocaleDateString("zh-HK", { weekday: "short" })}</span></div>
+            <div className="brief-grid">
+              <div><small>未完成</small><strong>{data.tasks.filter((task) => !task.done).length}</strong><span>件待辦</span></div>
+              <div><small>今日活動</small><strong>{todayPlans.length}</strong><span>項計劃</span></div>
+              <div><small>今日工時</small><strong>{formatHours(todayShiftSummary.minutes)}</strong><span>HK${formatMoney(todayShiftSummary.pay)}</span></div>
+              <div><small>健身</small><strong>{workoutToday ?? "—"}</strong><span>{workoutToday ? "已記錄" : "尚未記"}</span></div>
+            </div>
+            {nextPlan && <button className="next-up" onClick={() => changeTab("plan")}><span><small>下一項</small><strong>{nextPlan.activity}</strong></span><em>{nextPlan.date === isoDate() ? "今天" : parseIso(nextPlan.date).toLocaleDateString("zh-HK", { month: "short", day: "numeric" })} · {nextPlan.time} ›</em></button>}
+            <div className="brief-actions"><button onClick={() => changeTab("plan")}>＋ 新增活動</button><button onClick={() => { openShiftForm(); changeTab("work"); }}>＋ 補錄工時</button></div>
+          </section>
+
           <section className={`card gym-card ${workoutToday ? "checked" : ""}`}>
             <div className="gym-symbol"><span /><i /><span /></div>
             <div className="gym-copy"><span className="eyebrow">Daily movement</span><h2>{workoutToday ? `今天 · ${workoutToday}日` : "今天練哪裡？"}</h2><p>{workoutToday ? "已自動記在今天的月曆上" : "選擇訓練部位，點一下即儲存"}</p></div>
@@ -543,9 +668,9 @@ export default function Home() {
           </section>
 
           <section className="card task-card">
-            <div className="section-heading"><div><span className="eyebrow">Today</span><h2>今天要做的</h2></div><span className="count">{data.tasks.filter(t => !t.done).length}</span></div>
+            <div className="section-heading"><div><span className="eyebrow">Today</span><h2>今天要做的</h2></div>{data.tasks.some((task) => task.done) ? <button className="clear-completed" onClick={clearCompletedTasks}>清除完成</button> : <span className="count">{data.tasks.filter(t => !t.done).length}</span>}</div>
             <div className="task-list">
-              {data.tasks.slice(0, 5).map((task) => <button key={task.id} className={`task-row ${task.done ? "done" : ""}`} onClick={() => toggleTask(task.id)}><span className="check" /> <span>{task.text}</span><small>{task.done ? "完成" : "待辦"}</small></button>)}
+              {sortedTasks.map((task) => <div key={task.id} className={`task-row ${task.done ? "done" : ""}`}><button className="task-toggle" onClick={() => toggleTask(task.id)} aria-label={`${task.done ? "取消完成" : "完成"}${task.text}`}><span className="check" /><span>{task.text}</span><small>{task.done ? "完成" : "待辦"}</small></button><button className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`刪除${task.text}`}>×</button></div>)}
             </div>
             <form className="quick-add" onSubmit={addTask}><input value={taskText} onChange={(e) => setTaskText(e.target.value)} placeholder="記一件今天要做的事…" aria-label="新增待辦" /><button aria-label="加入待辦">↗</button></form>
           </section>
@@ -567,7 +692,7 @@ export default function Home() {
           <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} holidays={holidays} />
 
           <section className="card notification-card">
-            <div><span className="eyebrow">Reminder</span><h2>{notificationPermission === "granted" ? "到點通知已開啟" : "不要錯過這件事"}</h2><p>開啟 App 通知；再把重要項目加入手機行事曆，即使 App 關閉也會可靠提醒。</p></div>
+            <div><span className="eyebrow">Reminder</span><h2>{notificationPermission === "granted" ? "App 內到點通知已開啟" : "不要錯過這件事"}</h2><p>App 開啟時會到點通知。要確保 App 關閉後仍提醒，請把重要項目加入手機行事曆。</p></div>
             <button className="quiet-action" onClick={enableNotifications} disabled={notificationPermission !== "default"}>{notificationPermission === "granted" ? "已開啟" : notificationPermission === "denied" ? "到設定開啟" : "開啟通知"}</button>
           </section>
 
@@ -583,7 +708,13 @@ export default function Home() {
         </>}
 
         {tab === "work" && <>
-          <section className="hero work-hero"><span className="eyebrow">{monthLabel} · Work</span><h1><small>HK$</small>{formatMoney(totals.pay)}</h1><p>本月預計收入 · {formatHours(totals.minutes)}</p></section>
+          <section className="hero work-hero"><span className="eyebrow">{workMonthLabel} · Work</span><h1><small>HK$</small>{formatMoney(totals.pay)}</h1><p>所選月份預計收入 · {formatHours(totals.minutes)}</p></section>
+
+          <div className="work-month-switch" aria-label="工時月份">
+            <button onClick={() => changeWorkMonth(-1)} aria-label="上一個月份">‹</button>
+            <strong>{workMonthLabel}</strong>
+            <button onClick={() => changeWorkMonth(1)} aria-label="下一個月份">›</button>
+          </div>
 
           <section className="section-block">
             <div className="outside-heading"><div><span className="eyebrow">Jobs</span><h2>我的兼職</h2></div><button className="text-button" onClick={() => setShowJobForm(!showJobForm)}>＋ 新增</button></div>
@@ -593,9 +724,10 @@ export default function Home() {
           </section>
 
           <section className="card history-card">
-            <div className="section-heading"><div><span className="eyebrow">History</span><h2>最近記錄</h2></div><button className="text-button" onClick={() => setShowShiftForm(!showShiftForm)}>＋ 補錄</button></div>
-            <div className="history-summary" aria-label="本月工作結算"><div><small>本月應收</small><strong>HK${formatMoney(totals.pay)}</strong></div><div><small>堂／節數</small><strong>{totals.sessions}</strong></div><div><small>總工時</small><strong>{formatHours(totals.minutes)}</strong></div></div>
+            <div className="section-heading"><div><span className="eyebrow">History</span><h2>{workMonthLabel}記錄</h2></div><button className="text-button" onClick={() => showShiftForm && !editingShiftId ? closeShiftForm() : openShiftForm()}>{showShiftForm && !editingShiftId ? "收起" : "＋ 補錄"}</button></div>
+            <div className="history-summary" aria-label="所選月份工作結算"><div><small>月份應收</small><strong>HK${formatMoney(totals.pay)}</strong></div><div><small>堂／節數</small><strong>{totals.sessions}</strong></div><div><small>總工時</small><strong>{formatHours(totals.minutes)}</strong></div></div>
             {showShiftForm && <form className="shift-form" onSubmit={(event) => { event.preventDefault(); saveShift(); }}>
+              <div className="shift-form-heading"><strong>{editingShiftId ? "編輯工時" : "補錄工時"}</strong><button type="button" onClick={closeShiftForm}>取消</button></div>
               <label>兼職<select value={selectedJob} onChange={e => setSelectedJob(e.target.value)}>{data.jobs.map(job => <option value={job.id} key={job.id}>{job.name}</option>)}</select></label>
               <label>日期<input type="date" value={shiftDate} onChange={e => setShiftDate(e.target.value)} /></label>
               <div className="form-pair"><label>開始<input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} /></label><label>結束<input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} /></label></div>
@@ -603,14 +735,14 @@ export default function Home() {
               <label>地點<input value={shiftLocation} onChange={e => setShiftLocation(e.target.value)} placeholder="例如：灣仔道場" /></label>
               <div className="form-pair"><label>堂數／節數<input type="number" inputMode="numeric" min="1" step="1" value={shiftSessions} onChange={e => setShiftSessions(e.target.value)} /></label><label>實收金額 HK$<input type="number" inputMode="decimal" min="0" step="0.01" value={shiftAmount} onChange={e => setShiftAmount(e.target.value)} placeholder="留空則按時薪" /></label></div>
               {shiftError && <p className="form-error" role="alert">{shiftError}</p>}
-              <button className="primary-button" type="button" onClick={saveShift}>儲存這次工時</button>
+              <button className="primary-button" type="submit">{editingShiftId ? "更新這次工時" : "儲存這次工時"}</button>
             </form>}
-            <div className="history-list">{data.shifts.slice(0, 6).map(shift => {
+            <div className="history-list">{workShifts.map(shift => {
               const job = data.jobs.find(item => item.id === shift.jobId);
               const mins = minutesBetween(shift.start, shift.end, shift.breakMinutes);
-              return <div className="history-row" key={shift.id}><span className="date-tile"><b>{Number(shift.date.slice(-2))}</b><small>{new Date(`${shift.date}T12:00:00`).toLocaleDateString("zh-HK", { month: "short" })}</small></span><div className="history-copy"><strong>{job?.name ?? shift.jobName ?? "已刪除工作"}</strong><small>{shift.start}—{shift.end}{shift.breakMinutes ? ` · 休息 ${shift.breakMinutes}m` : ""}</small>{(shift.location || shift.sessions) && <span className="shift-meta">{shift.location && <i>⌖ {shift.location}</i>}{shift.sessions && <i>{shift.sessions} 堂／節</i>}</span>}</div><span className="pay"><b>HK${formatMoney(shiftEarnings(shift, job))}</b><small>{formatHours(mins)}</small><button onClick={() => deleteShift(shift.id)} aria-label={`刪除${shift.date}工時記錄`}>刪除</button></span></div>;
+              return <div className="history-row" key={shift.id}><span className="date-tile"><b>{Number(shift.date.slice(-2))}</b><small>{new Date(`${shift.date}T12:00:00`).toLocaleDateString("zh-HK", { month: "short" })}</small></span><div className="history-copy"><strong>{job?.name ?? shift.jobName ?? "已刪除工作"}</strong><small>{shift.start}—{shift.end}{shift.breakMinutes ? ` · 休息 ${shift.breakMinutes}m` : ""}</small>{(shift.location || shift.sessions) && <span className="shift-meta">{shift.location && <i>⌖ {shift.location}</i>}{shift.sessions && <i>{shift.sessions} 堂／節</i>}</span>}</div><span className="pay"><b>HK${formatMoney(shiftEarnings(shift, job))}</b><small>{formatHours(mins)}</small><span className="pay-actions"><button onClick={() => startEditShift(shift)} aria-label={`編輯${shift.date}工時記錄`}>編輯</button><button onClick={() => deleteShift(shift.id)} aria-label={`刪除${shift.date}工時記錄`}>刪除</button></span></span></div>;
             })}</div>
-            {!data.shifts.length && !showShiftForm && <p className="empty-history">還未有工時記錄。按「補錄」加入第一次記錄。</p>}
+            {!workShifts.length && !showShiftForm && <p className="empty-history">這個月份還未有工時記錄。按「補錄」加入記錄。</p>}
           </section>
         </>}
 
