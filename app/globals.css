@@ -200,6 +200,8 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .shift-meta i { padding: 4px 7px; border-radius: 999px; background: rgba(241,233,223,.055); color: var(--muted); font-size: 8px; font-style: normal; }
 .pay { display: flex; flex-direction: column; text-align: right; gap: 5px; }
 .pay b { font-family: Georgia, serif; font-size: 16px; font-weight: 400; }
+.pay button { align-self: flex-end; padding: 4px 0 0; border: 0; background: transparent; color: var(--dim); font-size: 8px; }
+.pay button:active { color: var(--red); }
 
 .diary-card textarea { width: 100%; min-height: 245px; resize: vertical; background: transparent; border: 0; color: var(--ivory); outline: 0; font-family: "Iowan Old Style", Baskerville, Georgia, "PingFang HK", serif; font-size: 20px; line-height: 1.8; }
 .diary-actions { border-top: 1px solid var(--line); padding-top: 15px; display: flex; justify-content: space-between; align-items: center; color: var(--dim); font-size: 10px; }

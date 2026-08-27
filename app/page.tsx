@@ -257,7 +257,7 @@ export default function Home() {
     setDiaryText(nextData.diary[isoDate()] ?? "");
     if ("Notification" in window) setNotificationPermission(Notification.permission);
     setHydrated(true);
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", document.baseURI).pathname).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -267,7 +267,9 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/hk-holidays").then((response) => response.ok ? response.json() : Promise.reject()).then((payload: { holidays?: Record<string, string> }) => {
+    const serverSource = new URL("api/hk-holidays", document.baseURI);
+    const staticSource = new URL("hk-holidays.json", document.baseURI);
+    fetch(serverSource).then((response) => response.ok ? response.json() : Promise.reject()).catch(() => fetch(staticSource).then((response) => response.ok ? response.json() : Promise.reject())).then((payload: { holidays?: Record<string, string> }) => {
       if (active && payload.holidays) setHolidays(payload.holidays);
     }).catch(() => undefined);
     return () => { active = false; };
@@ -282,8 +284,8 @@ export default function Home() {
       for (const plan of data.plans.filter((item) => dueIds.includes(item.id))) {
         navigator.serviceWorker.ready.then((registration) => registration.showNotification("暮刻提醒", {
           body: `${plan.time} · ${plan.activity}`,
-          icon: "/icon-192.png",
-          badge: "/icon-192.png",
+          icon: new URL("icon-192.png", document.baseURI).href,
+          badge: new URL("icon-192.png", document.baseURI).href,
           tag: `plan-${plan.id}`,
         })).catch(() => undefined);
       }
@@ -431,6 +433,14 @@ export default function Home() {
     }));
     if (selectedJob === id) setSelectedJob(remainingJobs[0].id);
     setJobError("");
+  }
+
+  function deleteShift(id: string) {
+    const shift = data.shifts.find((item) => item.id === id);
+    if (!shift) return;
+    const job = data.jobs.find((item) => item.id === shift.jobId);
+    if (!window.confirm(`確定刪除 ${shift.date} 的「${job?.name ?? shift.jobName ?? "工時"}」記錄？`)) return;
+    setData((prev) => ({ ...prev, shifts: prev.shifts.filter((item) => item.id !== id) }));
   }
 
   function saveDiary() {
@@ -598,7 +608,7 @@ export default function Home() {
             <div className="history-list">{data.shifts.slice(0, 6).map(shift => {
               const job = data.jobs.find(item => item.id === shift.jobId);
               const mins = minutesBetween(shift.start, shift.end, shift.breakMinutes);
-              return <div className="history-row" key={shift.id}><span className="date-tile"><b>{Number(shift.date.slice(-2))}</b><small>{new Date(`${shift.date}T12:00:00`).toLocaleDateString("zh-HK", { month: "short" })}</small></span><div className="history-copy"><strong>{job?.name ?? shift.jobName ?? "已刪除工作"}</strong><small>{shift.start}—{shift.end}{shift.breakMinutes ? ` · 休息 ${shift.breakMinutes}m` : ""}</small>{(shift.location || shift.sessions) && <span className="shift-meta">{shift.location && <i>⌖ {shift.location}</i>}{shift.sessions && <i>{shift.sessions} 堂／節</i>}</span>}</div><span className="pay"><b>HK${formatMoney(shiftEarnings(shift, job))}</b><small>{formatHours(mins)}</small></span></div>;
+              return <div className="history-row" key={shift.id}><span className="date-tile"><b>{Number(shift.date.slice(-2))}</b><small>{new Date(`${shift.date}T12:00:00`).toLocaleDateString("zh-HK", { month: "short" })}</small></span><div className="history-copy"><strong>{job?.name ?? shift.jobName ?? "已刪除工作"}</strong><small>{shift.start}—{shift.end}{shift.breakMinutes ? ` · 休息 ${shift.breakMinutes}m` : ""}</small>{(shift.location || shift.sessions) && <span className="shift-meta">{shift.location && <i>⌖ {shift.location}</i>}{shift.sessions && <i>{shift.sessions} 堂／節</i>}</span>}</div><span className="pay"><b>HK${formatMoney(shiftEarnings(shift, job))}</b><small>{formatHours(mins)}</small><button onClick={() => deleteShift(shift.id)} aria-label={`刪除${shift.date}工時記錄`}>刪除</button></span></div>;
             })}</div>
             {!data.shifts.length && !showShiftForm && <p className="empty-history">還未有工時記錄。按「補錄」加入第一次記錄。</p>}
           </section>

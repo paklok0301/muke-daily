@@ -61,9 +61,12 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(page, /本月工作結算/);
   assert.match(page, /sessions \+= shift\.sessions/);
   assert.match(page, /function deleteJob/);
+  assert.match(page, /function deleteShift/);
+  assert.match(page, /刪除\$\{shift\.date\}工時記錄/);
   assert.match(page, /至少需要保留一個工作/);
   assert.match(page, /過往工時記錄會保留/);
-  assert.match(page, /fetch\("\/api\/hk-holidays"\)/);
+  assert.match(page, /new URL\("api\/hk-holidays", document\.baseURI\)/);
+  assert.match(page, /new URL\("hk-holidays\.json", document\.baseURI\)/);
   assert.match(page, /setView\("day"\)/);
   assert.match(manifest, /display:\s*"standalone"/);
   assert.match(serviceWorker, /caches\.open/);
