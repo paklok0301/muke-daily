@@ -459,6 +459,11 @@ export default function Home() {
   const todayPlans = useMemo(() => data.plans.filter((plan) => plan.date === isoDate() && !plan.done).sort((a, b) => a.time.localeCompare(b.time)), [data.plans]);
   const todayClasses = useMemo(() => classesOnDate(data.classes, isoDate()), [data.classes]);
   const todayAssignments = useMemo(() => data.assignments.filter((assignment) => assignment.dueDate === isoDate() && !assignment.done).sort((a, b) => a.dueTime.localeCompare(b.dueTime)), [data.assignments]);
+  const todayLockscreenItems = useMemo(() => [
+    ...todayPlans.map((item) => ({ id: `plan-${item.id}`, time: item.time, emoji: item.emoji ?? "📌", label: item.activity, kind: "活動", color: item.color })),
+    ...todayClasses.map((item) => ({ id: `class-${item.id}`, time: item.startTime, emoji: item.emoji, label: item.name, kind: "課堂", color: item.color })),
+    ...todayAssignments.map((item) => ({ id: `assignment-${item.id}`, time: item.dueTime, emoji: item.emoji, label: `${item.course} · ${item.title}`, kind: "死線", color: item.color })),
+  ].sort((a, b) => a.time.localeCompare(b.time)), [todayAssignments, todayClasses, todayPlans]);
   const tomorrowPreview = useMemo(() => {
     const key = isoDate(addDays(new Date(), 1));
     return [
@@ -974,10 +979,25 @@ export default function Home() {
             <div className="preview-status"><span>9:41</span><span>●●● ︎◒</span></div>
             <span className="preview-label">鎖屏預覽</span>
             <h2>{new Date().toLocaleDateString("zh-HK", { weekday: "long", month: "long", day: "numeric" })}</h2>
-            <div className="preview-widget"><small>TODAY</small><strong>{todayClasses[0] ? `${todayClasses[0].emoji} ${todayClasses[0].startTime} ${todayClasses[0].name}` : "🎓 今天沒有課堂"}</strong><span>{todayAssignments[0] ? `${todayAssignments[0].emoji} ${todayAssignments[0].dueTime} ${todayAssignments[0].course} 截止` : "✨ 今日死線已清空"}</span></div>
+            <div className="preview-widget">
+              <div className="preview-widget-column schedule-column">
+                <div className="preview-widget-heading"><strong>🗓️ 今日行程</strong><b>{todayLockscreenItems.length}</b></div>
+                <div className="preview-widget-list">
+                  {todayLockscreenItems.map((item) => <div className="preview-widget-item" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji} {item.label}</span><small>{item.time} · {item.kind}</small></div>)}
+                  {!todayLockscreenItems.length && <p className="preview-widget-empty">今天未有安排</p>}
+                </div>
+              </div>
+              <div className="preview-widget-column todo-column">
+                <div className="preview-widget-heading"><strong>✅ 待辦</strong><b>{data.tasks.filter((item) => item.done).length}/{data.tasks.length}</b></div>
+                <div className="preview-widget-list">
+                  {sortedTasks.map((item) => <div className={`preview-task-item ${item.done ? "done" : ""}`} key={item.id}><i>{item.done ? "✓" : ""}</i><span>{item.text}</span></div>)}
+                  {!sortedTasks.length && <p className="preview-widget-empty">今天沒有待辦</p>}
+                </div>
+              </div>
+            </div>
             <div className="preview-notification"><div><small>行程提醒 · 現在</small><strong>🗓️ 明日行程 · {tomorrowPreview.length} 項</strong><p>{tomorrowPreview.length ? tomorrowPreview.slice(0, 3).map((item) => `${item.time} ${item.text}`).join(" · ") : "明天暫時沒有課堂、活動或死線"}</p></div></div>
             <div className="preview-notification secondary"><div><small>功課提醒 · 現在</small><strong>{sortedAssignments.find((item) => !item.done) ? `${sortedAssignments.find((item) => !item.done)?.emoji} 功課一週後到期` : "📝 功課死線提醒"}</strong><p>{sortedAssignments.find((item) => !item.done)?.title ?? "新增功課後會在死線前 7 天顯示"}</p></div></div>
-            <p className="preview-note">示意畫面 · 實際樣式會按 iPhone 版本及你的鎖屏設定調整</p>
+            <p className="preview-note">黑色每日總覽會列出全部活動、課堂、功課與待辦 · 實際 iPhone 通知樣式由 iOS 決定</p>
           </section>
 
           <section className="card notification-card campus-sync-card">

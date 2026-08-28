@@ -55,6 +55,12 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(page, /tab === "campus"/);
   assert.doesNotMatch(page, /暮刻 · TODAY|暮刻 · 現在|<span>暮<\/span>/);
   assert.match(page, /行程提醒 · 現在/);
+  assert.match(page, /todayLockscreenItems/);
+  assert.match(page, /todayPlans\.map/);
+  assert.match(page, /黑色每日總覽會列出全部活動、課堂、功課與待辦/);
+  assert.match(page, /preview-widget-item/);
+  assert.match(page, /preview-task-item/);
+  assert.doesNotMatch(page, /todayLockscreenItems\.slice/);
   assert.match(page, /工時需要大於 0 分鐘/);
   assert.match(page, /startViewTransition/);
   assert.match(page, /planColors = \[/);
