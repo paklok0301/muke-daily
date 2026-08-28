@@ -1,7 +1,7 @@
 {
   "name": "暮刻 — 你的日常與工時",
   "short_name": "暮刻",
-  "description": "課表、功課、待辦、工時、健身與日記，都在一個安靜的地方。",
+  "description": "活動、課表、功課、待辦、公事與健身，都在一個安靜的地方。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
