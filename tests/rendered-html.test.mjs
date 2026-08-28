@@ -61,6 +61,10 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(page, /preview-widget-item/);
   assert.match(page, /preview-task-item/);
   assert.doesNotMatch(page, /todayLockscreenItems\.slice/);
+  assert.match(page, /calendarAdded/);
+  assert.match(page, /campusCalendarDownloaded/);
+  assert.match(page, /notificationSetupDone/);
+  assert.match(page, /showCampusSync/);
   assert.match(page, /工時需要大於 0 分鐘/);
   assert.match(page, /startViewTransition/);
   assert.match(page, /planColors = \[/);

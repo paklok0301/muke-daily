@@ -18,9 +18,9 @@ type Shift = {
   amount?: number;
 };
 type Task = { id: string; text: string; done: boolean };
-type PlanItem = { id: string; activity: string; date: string; time: string; color: string; emoji?: string; reminderDays?: number; done: boolean; notified: boolean };
+type PlanItem = { id: string; activity: string; date: string; time: string; color: string; emoji?: string; reminderDays?: number; done: boolean; notified: boolean; calendarAdded?: boolean };
 type RecurringClass = { id: string; name: string; emoji: string; weekday: number; startTime: string; endTime: string; startDate: string; endDate: string; location?: string; color: string };
-type Assignment = { id: string; course: string; title: string; emoji: string; dueDate: string; dueTime: string; color: string; done: boolean; reminded: boolean };
+type Assignment = { id: string; course: string; title: string; emoji: string; dueDate: string; dueTime: string; color: string; done: boolean; reminded: boolean; calendarAdded?: boolean };
 type WorkoutType = "胸" | "背" | "肩" | "腿";
 type AppData = {
   jobs: Job[];
@@ -32,6 +32,8 @@ type AppData = {
   classReminderLog: string[];
   diary: Record<string, string>; // Legacy backup field; no longer shown in the app.
   workouts: Record<string, WorkoutType>;
+  campusCalendarDownloaded: boolean;
+  notificationSetupDone: boolean;
   lastBackupAt?: string;
 };
 
@@ -62,6 +64,8 @@ const defaultData: AppData = {
   classReminderLog: [],
   diary: {},
   workouts: {},
+  campusCalendarDownloaded: false,
+  notificationSetupDone: false,
 };
 
 function minutesBetween(start: string, end: string, breakMinutes = 0) {
@@ -337,6 +341,7 @@ export default function Home() {
         };
       }
     } catch {}
+    if ("Notification" in window && Notification.permission !== "default") nextData = { ...nextData, notificationSetupDone: true };
     // Browser-only persisted state can only be hydrated after the server render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(nextData);
@@ -497,6 +502,8 @@ export default function Home() {
     summary.pay += shiftEarnings(shift, job);
     return summary;
   }, { minutes: 0, pay: 0 }), [data.jobs, data.shifts]);
+  const notificationsConfigured = data.notificationSetupDone || notificationPermission !== "default";
+  const showCampusSync = !data.campusCalendarDownloaded || !notificationsConfigured;
 
   function addTask(event: FormEvent) {
     event.preventDefault();
@@ -526,7 +533,8 @@ export default function Home() {
     setPlanError("");
     setData((prev) => ({
       ...prev,
-      plans: [...prev.plans, { id: crypto.randomUUID(), activity: planActivity.trim(), date: planDate, time: planTime, color: planColor, emoji: planEmoji, reminderDays: 1, done: false, notified: false }],
+      campusCalendarDownloaded: false,
+      plans: [...prev.plans, { id: crypto.randomUUID(), activity: planActivity.trim(), date: planDate, time: planTime, color: planColor, emoji: planEmoji, reminderDays: 1, done: false, notified: false, calendarAdded: false }],
     }));
     setPlanActivity("");
   }
@@ -541,7 +549,7 @@ export default function Home() {
       setClassError("請確認學期日期及下課時間。");
       return;
     }
-    setData((prev) => ({ ...prev, classes: [...prev.classes, {
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: false, classes: [...prev.classes, {
       id: crypto.randomUUID(), name: className.trim(), emoji: classEmoji, weekday: classWeekday,
       startTime: classStartTime, endTime: classEndTime, startDate: classStartDate, endDate: classEndDate,
       location: classLocation.trim() || undefined, color: classColor,
@@ -552,7 +560,7 @@ export default function Home() {
   function deleteRecurringClass(id: string) {
     const item = data.classes.find((entry) => entry.id === id);
     if (!item || !window.confirm(`確定刪除整個學期的「${item.name}」？`)) return;
-    setData((prev) => ({ ...prev, classes: prev.classes.filter((entry) => entry.id !== id) }));
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: false, classes: prev.classes.filter((entry) => entry.id !== id) }));
   }
 
   function addAssignment(event: FormEvent) {
@@ -561,9 +569,9 @@ export default function Home() {
       setAssignmentError("請填寫科目、功課、死線日期及時間。");
       return;
     }
-    setData((prev) => ({ ...prev, assignments: [...prev.assignments, {
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: false, assignments: [...prev.assignments, {
       id: crypto.randomUUID(), course: assignmentCourse.trim(), title: assignmentTitle.trim(), emoji: assignmentEmoji,
-      dueDate: assignmentDueDate, dueTime: assignmentDueTime, color: assignmentColor, done: false, reminded: false,
+      dueDate: assignmentDueDate, dueTime: assignmentDueTime, color: assignmentColor, done: false, reminded: false, calendarAdded: false,
     }] }));
     setAssignmentTitle(""); setAssignmentError(""); setShowAssignmentForm(false);
   }
@@ -573,7 +581,7 @@ export default function Home() {
   }
 
   function deleteAssignment(id: string) {
-    setData((prev) => ({ ...prev, assignments: prev.assignments.filter((item) => item.id !== id) }));
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: false, assignments: prev.assignments.filter((item) => item.id !== id) }));
   }
 
   function togglePlan(id: string) {
@@ -581,7 +589,7 @@ export default function Home() {
   }
 
   function deletePlan(id: string) {
-    setData((prev) => ({ ...prev, plans: prev.plans.filter((plan) => plan.id !== id) }));
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: false, plans: prev.plans.filter((plan) => plan.id !== id) }));
   }
 
   async function enableNotifications() {
@@ -591,6 +599,7 @@ export default function Home() {
     }
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
+    if (permission !== "default") setData((prev) => ({ ...prev, notificationSetupDone: true }));
   }
 
   function addToPhoneCalendar(plan: PlanItem) {
@@ -604,6 +613,7 @@ export default function Home() {
       "END:VEVENT", "END:VCALENDAR",
     ].join("\r\n");
     downloadCalendar(content, `${plan.date}-${plan.time.replace(":", "")}-暮刻.ics`);
+    setData((prev) => ({ ...prev, plans: prev.plans.map((item) => item.id === plan.id ? { ...item, calendarAdded: true } : item) }));
   }
 
   function addAssignmentToPhoneCalendar(assignment: Assignment) {
@@ -617,6 +627,7 @@ export default function Home() {
       "END:VEVENT", "END:VCALENDAR",
     ].join("\r\n");
     downloadCalendar(content, `${assignment.dueDate}-${assignment.course}-功課.ics`);
+    setData((prev) => ({ ...prev, assignments: prev.assignments.map((item) => item.id === assignment.id ? { ...item, calendarAdded: true } : item) }));
   }
 
   function exportCampusCalendar() {
@@ -646,6 +657,7 @@ export default function Home() {
     }
     const content = ["BEGIN:VCALENDAR", "VERSION:2.0", "CALSCALE:GREGORIAN", "PRODID:-//Muke//Campus//ZH-HK", ...events, "END:VCALENDAR"].join("\r\n");
     downloadCalendar(content, "暮刻-校園行事曆.ics");
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: true }));
   }
 
   function saveShift() {
@@ -811,6 +823,8 @@ export default function Home() {
         classReminderLog: Array.isArray(imported.classReminderLog) ? imported.classReminderLog : [],
         diary: imported.diary && typeof imported.diary === "object" ? imported.diary : {},
         workouts: imported.workouts && typeof imported.workouts === "object" ? imported.workouts : {},
+        campusCalendarDownloaded: Boolean(imported.campusCalendarDownloaded),
+        notificationSetupDone: Boolean(imported.notificationSetupDone),
         lastBackupAt: typeof imported.lastBackupAt === "string" ? imported.lastBackupAt : undefined,
       };
       setData(restored);
@@ -874,8 +888,7 @@ export default function Home() {
               {todayAssignments.map((item) => <div className="campus-day-row assignment" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji}</span><div><small>今天 {item.dueTime} 截止</small><strong>{item.course} · {item.title}</strong></div></div>)}
               {!todayClasses.length && !todayAssignments.length && <div className="campus-empty"><span>☁️</span><div><strong>今天沒有課堂或死線</strong><small>可以把注意力留給真正重要的事。</small></div></div>}
             </div>
-            <button className="campus-calendar-button" onClick={exportCampusCalendar}>下載鎖屏行事曆</button>
-            <p className="lockscreen-steps">匯入 iPhone 後：長按鎖屏 → 自訂 → 加入「日曆」小工具。</p>
+            {!data.campusCalendarDownloaded && <><button className="campus-calendar-button" onClick={exportCampusCalendar}>下載鎖屏行事曆</button><p className="lockscreen-steps">匯入 iPhone 後：長按鎖屏 → 自訂 → 加入「日曆」小工具。</p></>}
           </section>
 
           <section className="card daily-brief-card">
@@ -929,7 +942,7 @@ export default function Home() {
             <div className="plan-list">{sortedPlans.map((plan) => <article className={`card plan-row ${plan.done ? "done" : ""}`} key={plan.id} style={{ borderLeftColor: plan.color }}>
               <button className="plan-check" aria-label={plan.done ? "標記為未完成" : "標記為完成"} onClick={() => togglePlan(plan.id)}><span /></button>
               <div className="plan-copy"><small>{parseIso(plan.date).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })}</small><strong>{plan.time}</strong><p>{plan.emoji ?? "📌"} {plan.activity} · 提前 1 天</p></div>
-              <div className="plan-actions"><button onClick={() => addToPhoneCalendar(plan)} aria-label={`把${plan.activity}加入手機行事曆`}>加入行事曆</button><button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
+              <div className="plan-actions">{!plan.calendarAdded && <button onClick={() => addToPhoneCalendar(plan)} aria-label={`把${plan.activity}加入手機行事曆`}>加入行事曆</button>}<button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
             </article>)}</div>
             {!sortedPlans.length && <p className="empty-plans">暫時沒有未來活動。<br />把下一件重要的事放進來吧。</p>}
           </section>
@@ -970,7 +983,7 @@ export default function Home() {
             </form>}
             <div className="academic-list">{sortedAssignments.map((item) => <article className={`academic-row assignment-row ${item.done ? "done" : ""}`} key={item.id} style={{ borderLeftColor: item.color }}>
               <button className="assignment-check" onClick={() => toggleAssignment(item.id)} aria-label={item.done ? "標記未完成" : "標記完成"}>{item.done ? "✓" : item.emoji}</button><div className="academic-copy"><small>{parseIso(item.dueDate).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })} · {item.dueTime}</small><strong>{item.course}</strong><p>{item.title} · 提前 7 天提醒</p></div>
-              <div className="academic-row-actions"><button onClick={() => addAssignmentToPhoneCalendar(item)} aria-label={`把${item.title}加入手機行事曆`}>行事曆</button><button onClick={() => deleteAssignment(item.id)} aria-label={`刪除${item.title}`}>刪除</button></div>
+              <div className="academic-row-actions">{!item.calendarAdded && <button onClick={() => addAssignmentToPhoneCalendar(item)} aria-label={`把${item.title}加入手機行事曆`}>行事曆</button>}<button onClick={() => deleteAssignment(item.id)} aria-label={`刪除${item.title}`}>刪除</button></div>
             </article>)}</div>
             {!sortedAssignments.length && !showAssignmentForm && <p className="empty-plans">未有功課死線。<br />把作業、測驗或報告放進來吧。</p>}
           </section>
@@ -1000,10 +1013,10 @@ export default function Home() {
             <p className="preview-note">黑色每日總覽會列出全部活動、課堂、功課與待辦 · 實際 iPhone 通知樣式由 iOS 決定</p>
           </section>
 
-          <section className="card notification-card campus-sync-card">
+          {showCampusSync && <section className="card notification-card campus-sync-card">
             <div><span className="eyebrow">Lock screen sync</span><h2>把校園節奏放上鎖屏</h2><p>App 開啟時會檢查提醒；下載後由 iPhone 日曆負責在 App 關閉時通知。課堂／活動提前一天，功課提前一星期。</p></div>
-            <div className="sync-actions"><button className="primary-button" onClick={exportCampusCalendar}>下載鎖屏行事曆</button><button className="quiet-action" onClick={enableNotifications} disabled={notificationPermission !== "default"}>{notificationPermission === "granted" ? "App 通知已開啟" : notificationPermission === "denied" ? "到設定開啟" : "開啟 App 通知"}</button></div>
-          </section>
+            <div className="sync-actions">{!data.campusCalendarDownloaded && <button className="primary-button" onClick={exportCampusCalendar}>下載鎖屏行事曆</button>}{!notificationsConfigured && <button className="quiet-action" onClick={enableNotifications}>開啟 App 通知</button>}</div>
+          </section>}
 
         </>}
 

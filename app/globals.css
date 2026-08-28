@@ -312,6 +312,7 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .campus-sync-card { grid-template-columns: 1fr; }
 .sync-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .sync-actions .primary-button { margin: 0; font-size: 10px; padding: 0 12px; }
+.sync-actions > :only-child { grid-column: 1 / -1; }
 
 .lockscreen-preview { min-height: 500px; margin-bottom: 18px; padding: 23px 19px; overflow: hidden; position: relative; background: radial-gradient(circle at 50% 12%, rgba(133,83,89,.38), transparent 34%), linear-gradient(165deg, #3b3134 0%, #151214 58%, #080707 100%); border-color: rgba(241,233,223,.16); }
 .lockscreen-preview::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px); background-size: 28px 28px; mask-image: linear-gradient(to bottom, black, transparent 72%); pointer-events: none; }
