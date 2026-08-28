@@ -28,7 +28,8 @@ test("renders the Muke mobile app shell", async () => {
   assert.match(html, /aria-label="生活月曆"/);
   assert.match(html, /aria-label="月曆檢視"/);
   assert.match(html, />月<\/button>.*>週<\/button>.*>日<\/button>/s);
-  assert.match(html, />校園<\/button>/);
+  assert.match(html, />今天<\/button>.*>新增活動<\/button>.*>校園<\/button>.*>公事<\/button>/s);
+  assert.doesNotMatch(html, />日記<\/button>/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
 
@@ -48,7 +49,12 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(page, /匯入備份/);
   assert.match(page, /暮刻備份-/);
   assert.match(page, /workouts:\s*Record<string, WorkoutType>/);
-  assert.doesNotMatch(page, /setDiaryText\(data\.diary\[isoDate\(\)\]/);
+  assert.match(page, /type Tab = "home" \| "activity" \| "campus" \| "work"/);
+  assert.doesNotMatch(page, /tab === "diary"|儲存日記|今日日記/);
+  assert.match(page, /tab === "activity"/);
+  assert.match(page, /tab === "campus"/);
+  assert.doesNotMatch(page, /暮刻 · TODAY|暮刻 · 現在|<span>暮<\/span>/);
+  assert.match(page, /行程提醒 · 現在/);
   assert.match(page, /工時需要大於 0 分鐘/);
   assert.match(page, /startViewTransition/);
   assert.match(page, /planColors = \[/);

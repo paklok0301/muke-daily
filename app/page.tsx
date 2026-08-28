@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
-type Tab = "home" | "plan" | "work" | "diary";
+type Tab = "home" | "activity" | "campus" | "work";
 type Job = { id: string; name: string; rate: number; color: string };
 type Shift = {
   id: string;
@@ -30,7 +30,7 @@ type AppData = {
   classes: RecurringClass[];
   assignments: Assignment[];
   classReminderLog: string[];
-  diary: Record<string, string>;
+  diary: Record<string, string>; // Legacy backup field; no longer shown in the app.
   workouts: Record<string, WorkoutType>;
   lastBackupAt?: string;
 };
@@ -135,13 +135,12 @@ function downloadCalendar(content: string, filename: string) {
 }
 
 function MiniCalendar({
-  markedDates, workouts, shifts, jobs, diary, plans, classes, assignments, holidays,
+  markedDates, workouts, shifts, jobs, plans, classes, assignments, holidays,
 }: {
   markedDates: Set<string>;
   workouts: Record<string, WorkoutType>;
   shifts: Shift[];
   jobs: Job[];
-  diary: Record<string, string>;
   plans: PlanItem[];
   classes: RecurringClass[];
   assignments: Assignment[];
@@ -239,7 +238,7 @@ function MiniCalendar({
             const planCount = plans.filter((plan) => plan.date === key && !plan.done).length;
             const classCount = classesOnDate(classes, key).length;
             const assignmentCount = assignments.filter((assignment) => assignment.dueDate === key && !assignment.done).length;
-            return <button key={key} onClick={() => { setSelected(key); setView("day"); }}><span>{date.toLocaleDateString("zh-HK", { weekday: "short", day: "numeric" })}</span><strong>{[holidays[key] ?? "", classCount ? `${classCount} 堂課` : "", assignmentCount ? `${assignmentCount} 項功課` : "", planCount ? `${planCount} 項計劃` : "", count ? `${count} 段工時` : "", workouts[key] ? `${workouts[key]}日` : "", diary[key]?.trim() ? "有日記" : ""].filter(Boolean).join(" · ")}</strong><em>›</em></button>;
+            return <button key={key} onClick={() => { setSelected(key); setView("day"); }}><span>{date.toLocaleDateString("zh-HK", { weekday: "short", day: "numeric" })}</span><strong>{[holidays[key] ?? "", classCount ? `${classCount} 堂課` : "", assignmentCount ? `${assignmentCount} 項功課` : "", planCount ? `${planCount} 項計劃` : "", count ? `${count} 段工時` : "", workouts[key] ? `${workouts[key]}日` : ""].filter(Boolean).join(" · ")}</strong><em>›</em></button>;
           })}
           {!weekDays.some((date) => hasActivity(isoDate(date))) && <p className="empty-calendar">本週尚未有記錄</p>}
         </div>
@@ -255,10 +254,9 @@ function MiniCalendar({
           const job = jobs.find((item) => item.id === shift.jobId);
           return <div className="day-event" key={shift.id}><span className="event-icon">時</span><div><small>{job?.name ?? shift.jobName ?? "已刪除工作"}{shift.location ? ` · ${shift.location}` : ""}</small><strong>{shift.start} — {shift.end}{shift.sessions ? ` · ${shift.sessions} 堂` : ""}</strong></div><em>HK${formatMoney(shiftEarnings(shift, job))}</em></div>;
         })}
-        {diary[selected]?.trim() && <div className="day-event"><span className="event-icon">記</span><div><small>日記</small><strong>{diary[selected].slice(0, 42)}{diary[selected].length > 42 ? "…" : ""}</strong></div></div>}
         {!hasActivity(selected) && <p className="empty-calendar">這天還沒有記錄。<br />留白也可以是一種休息。</p>}
       </div>}
-      <div className="calendar-legend"><span><u />假期</span><span><i />日記／工時</span><span><em />活動／課堂／功課</span><span><b />健身</span></div>
+      <div className="calendar-legend"><span><u />假期</span><span><i />工時</span><span><em />活動／課堂／功課</span><span><b />健身</span></div>
       <p className="holiday-source">假期資料：香港政府 1823 · 2025–2027</p>
     </section>
   );
@@ -269,7 +267,6 @@ export default function Home() {
   const [data, setData] = useState<AppData>(defaultData);
   const [hydrated, setHydrated] = useState(false);
   const [taskText, setTaskText] = useState("");
-  const [diaryText, setDiaryText] = useState("");
   const [planActivity, setPlanActivity] = useState("");
   const [planDate, setPlanDate] = useState(isoDate(addDays(new Date(), 1)));
   const [planTime, setPlanTime] = useState("09:00");
@@ -343,7 +340,6 @@ export default function Home() {
     // Browser-only persisted state can only be hydrated after the server render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(nextData);
-    setDiaryText(nextData.diary[isoDate()] ?? "");
     if ("Notification" in window) setNotificationPermission(Notification.permission);
     navigator.storage?.persisted?.().then(setStoragePersistent).catch(() => setStoragePersistent(null));
     setHydrated(true);
@@ -452,8 +448,7 @@ export default function Home() {
     ...data.shifts.map((item) => item.date),
     ...data.plans.filter((item) => !item.done).map((item) => item.date),
     ...data.assignments.filter((item) => !item.done).map((item) => item.dueDate),
-    ...Object.keys(data.diary).filter((key) => data.diary[key]?.trim()),
-  ]), [data.assignments, data.diary, data.plans, data.shifts]);
+  ]), [data.assignments, data.plans, data.shifts]);
   const workoutToday = data.workouts?.[isoDate()];
 
   const sortedPlans = useMemo(() => [...data.plans].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)), [data.plans]);
@@ -474,16 +469,16 @@ export default function Home() {
   }, [data.assignments, data.classes, data.plans]);
   const nextSchedule = useMemo(() => {
     const now = new Date();
-    const candidates: { id: string; label: string; date: string; time: string; emoji: string }[] = [
-      ...data.plans.filter((plan) => !plan.done).map((plan) => ({ id: plan.id, label: plan.activity, date: plan.date, time: plan.time, emoji: plan.emoji ?? "📌" })),
-      ...data.assignments.filter((assignment) => !assignment.done).map((assignment) => ({ id: assignment.id, label: `${assignment.course} · ${assignment.title}`, date: assignment.dueDate, time: assignment.dueTime, emoji: assignment.emoji })),
+    const candidates: { id: string; label: string; date: string; time: string; emoji: string; destination: "activity" | "campus" }[] = [
+      ...data.plans.filter((plan) => !plan.done).map((plan) => ({ id: plan.id, label: plan.activity, date: plan.date, time: plan.time, emoji: plan.emoji ?? "📌", destination: "activity" as const })),
+      ...data.assignments.filter((assignment) => !assignment.done).map((assignment) => ({ id: assignment.id, label: `${assignment.course} · ${assignment.title}`, date: assignment.dueDate, time: assignment.dueTime, emoji: assignment.emoji, destination: "campus" as const })),
     ];
     for (const item of data.classes) {
       let date = parseIso(isoDate());
       for (let count = 0; count <= 7; count += 1) {
         const key = isoDate(date);
         if (classOccursOn(item, key) && new Date(`${key}T${item.startTime}:00`) >= now) {
-          candidates.push({ id: `${item.id}-${key}`, label: item.name, date: key, time: item.startTime, emoji: item.emoji });
+          candidates.push({ id: `${item.id}-${key}`, label: item.name, date: key, time: item.startTime, emoji: item.emoji, destination: "campus" });
           break;
         }
         date = addDays(date, 1);
@@ -753,10 +748,6 @@ export default function Home() {
     if (editingShiftId === id) closeShiftForm();
   }
 
-  function saveDiary() {
-    setData((prev) => ({ ...prev, diary: { ...prev.diary, [isoDate()]: diaryText } }));
-  }
-
   function recordWorkout(type: WorkoutType) {
     const today = isoDate();
     setData((prev) => {
@@ -819,7 +810,6 @@ export default function Home() {
       };
       setData(restored);
       setSelectedJob(restored.jobs[0].id);
-      setDiaryText(restored.diary[isoDate()] ?? "");
       setDataMessage("資料已成功匯入這部裝置。");
     } catch {
       setDataMessage("無法匯入：請選擇由暮刻下載的 JSON 備份檔。");
@@ -864,15 +854,15 @@ export default function Home() {
           <section className="hero">
             <span className="eyebrow">Good evening</span>
             <h1>Remember<br /><em>who you are.</em></h1>
-            <p>待辦、計劃與心情，都在一個安靜的地方。</p>
+            <p>待辦、活動與課堂，都在一個安靜的地方。</p>
           </section>
 
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} classes={data.classes} assignments={data.assignments} holidays={holidays} />
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} plans={data.plans} classes={data.classes} assignments={data.assignments} holidays={holidays} />
 
           <section className="card campus-widget">
             <div className="campus-widget-heading">
               <div><span className="eyebrow">Campus today</span><h2>🎓 今日校園</h2></div>
-              <button className="widget-link" onClick={() => changeTab("plan")}>管理 ›</button>
+              <button className="widget-link" onClick={() => changeTab("campus")}>管理 ›</button>
             </div>
             <div className="campus-day-list">
               {todayClasses.map((item) => <div className="campus-day-row" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji}</span><div><small>{item.startTime}—{item.endTime}</small><strong>{item.name}</strong>{item.location && <em>⌖ {item.location}</em>}</div></div>)}
@@ -891,8 +881,8 @@ export default function Home() {
               <div><small>今日工時</small><strong>{formatHours(todayShiftSummary.minutes)}</strong><span>HK${formatMoney(todayShiftSummary.pay)}</span></div>
               <div><small>健身</small><strong>{workoutToday ?? "—"}</strong><span>{workoutToday ? "已記錄" : "尚未記"}</span></div>
             </div>
-            {nextSchedule && <button className="next-up" onClick={() => changeTab("plan")}><span><small>下一項</small><strong>{nextSchedule.emoji} {nextSchedule.label}</strong></span><em>{nextSchedule.date === isoDate() ? "今天" : parseIso(nextSchedule.date).toLocaleDateString("zh-HK", { month: "short", day: "numeric" })} · {nextSchedule.time} ›</em></button>}
-            <div className="brief-actions"><button onClick={() => changeTab("plan")}>＋ 新增活動</button><button onClick={() => { openShiftForm(); changeTab("work"); }}>＋ 補錄工時</button></div>
+            {nextSchedule && <button className="next-up" onClick={() => changeTab(nextSchedule.destination)}><span><small>下一項</small><strong>{nextSchedule.emoji} {nextSchedule.label}</strong></span><em>{nextSchedule.date === isoDate() ? "今天" : parseIso(nextSchedule.date).toLocaleDateString("zh-HK", { month: "short", day: "numeric" })} · {nextSchedule.time} ›</em></button>}
+            <div className="brief-actions"><button onClick={() => changeTab("activity")}>＋ 新增活動</button><button onClick={() => { openShiftForm(); changeTab("work"); }}>＋ 補錄工時</button></div>
           </section>
 
           <section className={`card gym-card ${workoutToday ? "checked" : ""}`}>
@@ -912,7 +902,35 @@ export default function Home() {
           </section>
         </>}
 
-        {tab === "plan" && <>
+        {tab === "activity" && <>
+          <section className="hero plan-hero"><span className="eyebrow">New event</span><h1>把下一件事，<br /><em>放進日程。</em></h1><p>設定日期、確實時間和顏色，暮刻會在前一天提醒你。</p></section>
+
+          <section className="card plan-form-card">
+            <div className="section-heading"><div><span className="eyebrow">Plan ahead</span><h2>新增活動</h2></div><span className="count">＋</span></div>
+            <form className="plan-form" onSubmit={addPlan}>
+              <div className="form-pair emoji-name-pair"><label>Emoji<select value={planEmoji} onChange={(event) => setPlanEmoji(event.target.value)}>{emojiOptions.map((emoji) => <option key={emoji}>{emoji}</option>)}</select></label><label>活動<input value={planActivity} onChange={(event) => setPlanActivity(event.target.value)} placeholder="例如：跆拳道訓練" aria-label="活動名稱" /></label></div>
+              <div className="form-pair"><label>日期<input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} /></label><label>確實時間<input type="time" value={planTime} onChange={(event) => setPlanTime(event.target.value)} /></label></div>
+              <fieldset className="color-picker"><legend>活動顏色</legend><div>{planColors.map((color, index) => <button type="button" key={color} aria-label={`選擇${planColorNames[index]}`} title={planColorNames[index]} aria-pressed={planColor === color} className={planColor === color ? "selected" : ""} style={{ background: color }} onClick={() => setPlanColor(color)} />)}</div></fieldset>
+              <p className="field-note">🔔 提前一天提醒。</p>
+              {planError && <p className="form-error" role="alert">{planError}</p>}
+              <button className="primary-button" type="submit">加入活動</button>
+            </form>
+          </section>
+
+          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} plans={data.plans} classes={data.classes} assignments={data.assignments} holidays={holidays} />
+
+          <section className="section-block plan-list-section">
+            <div className="outside-heading"><div><span className="eyebrow">Upcoming</span><h2>接下來</h2></div><span className="plan-total">{data.plans.filter((plan) => !plan.done).length} 項</span></div>
+            <div className="plan-list">{sortedPlans.map((plan) => <article className={`card plan-row ${plan.done ? "done" : ""}`} key={plan.id} style={{ borderLeftColor: plan.color }}>
+              <button className="plan-check" aria-label={plan.done ? "標記為未完成" : "標記為完成"} onClick={() => togglePlan(plan.id)}><span /></button>
+              <div className="plan-copy"><small>{parseIso(plan.date).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })}</small><strong>{plan.time}</strong><p>{plan.emoji ?? "📌"} {plan.activity} · 提前 1 天</p></div>
+              <div className="plan-actions"><button onClick={() => addToPhoneCalendar(plan)} aria-label={`把${plan.activity}加入手機行事曆`}>加入行事曆</button><button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
+            </article>)}</div>
+            {!sortedPlans.length && <p className="empty-plans">暫時沒有未來活動。<br />把下一件重要的事放進來吧。</p>}
+          </section>
+        </>}
+
+        {tab === "campus" && <>
           <section className="hero campus-hero"><span className="eyebrow">Campus rhythm</span><h1>一堂輸入一次，<br /><em>整個學期都排好。</em></h1><p>課表、課室與功課死線，在今天需要時才出現。</p></section>
 
           <section className="card academic-section">
@@ -956,9 +974,9 @@ export default function Home() {
             <div className="preview-status"><span>9:41</span><span>●●● ︎◒</span></div>
             <span className="preview-label">鎖屏預覽</span>
             <h2>{new Date().toLocaleDateString("zh-HK", { weekday: "long", month: "long", day: "numeric" })}</h2>
-            <div className="preview-widget"><small>暮刻 · TODAY</small><strong>{todayClasses[0] ? `${todayClasses[0].emoji} ${todayClasses[0].startTime} ${todayClasses[0].name}` : "🎓 今天沒有課堂"}</strong><span>{todayAssignments[0] ? `${todayAssignments[0].emoji} ${todayAssignments[0].dueTime} ${todayAssignments[0].course} 截止` : "✨ 今日死線已清空"}</span></div>
-            <div className="preview-notification"><span>暮</span><div><small>暮刻 · 現在</small><strong>🗓️ 明日行程 · {tomorrowPreview.length} 項</strong><p>{tomorrowPreview.length ? tomorrowPreview.slice(0, 3).map((item) => `${item.time} ${item.text}`).join(" · ") : "明天暫時沒有課堂、活動或死線"}</p></div></div>
-            <div className="preview-notification secondary"><span>暮</span><div><small>暮刻 · 現在</small><strong>{sortedAssignments.find((item) => !item.done) ? `${sortedAssignments.find((item) => !item.done)?.emoji} 功課一週後到期` : "📝 功課死線提醒"}</strong><p>{sortedAssignments.find((item) => !item.done)?.title ?? "新增功課後會在死線前 7 天顯示"}</p></div></div>
+            <div className="preview-widget"><small>TODAY</small><strong>{todayClasses[0] ? `${todayClasses[0].emoji} ${todayClasses[0].startTime} ${todayClasses[0].name}` : "🎓 今天沒有課堂"}</strong><span>{todayAssignments[0] ? `${todayAssignments[0].emoji} ${todayAssignments[0].dueTime} ${todayAssignments[0].course} 截止` : "✨ 今日死線已清空"}</span></div>
+            <div className="preview-notification"><div><small>行程提醒 · 現在</small><strong>🗓️ 明日行程 · {tomorrowPreview.length} 項</strong><p>{tomorrowPreview.length ? tomorrowPreview.slice(0, 3).map((item) => `${item.time} ${item.text}`).join(" · ") : "明天暫時沒有課堂、活動或死線"}</p></div></div>
+            <div className="preview-notification secondary"><div><small>功課提醒 · 現在</small><strong>{sortedAssignments.find((item) => !item.done) ? `${sortedAssignments.find((item) => !item.done)?.emoji} 功課一週後到期` : "📝 功課死線提醒"}</strong><p>{sortedAssignments.find((item) => !item.done)?.title ?? "新增功課後會在死線前 7 天顯示"}</p></div></div>
             <p className="preview-note">示意畫面 · 實際樣式會按 iPhone 版本及你的鎖屏設定調整</p>
           </section>
 
@@ -967,29 +985,6 @@ export default function Home() {
             <div className="sync-actions"><button className="primary-button" onClick={exportCampusCalendar}>下載鎖屏行事曆</button><button className="quiet-action" onClick={enableNotifications} disabled={notificationPermission !== "default"}>{notificationPermission === "granted" ? "App 通知已開啟" : notificationPermission === "denied" ? "到設定開啟" : "開啟 App 通知"}</button></div>
           </section>
 
-          <section className="card plan-form-card">
-            <div className="section-heading"><div><span className="eyebrow">New event</span><h2>新增活動</h2></div><span className="count">＋</span></div>
-            <form className="plan-form" onSubmit={addPlan}>
-              <div className="form-pair emoji-name-pair"><label>Emoji<select value={planEmoji} onChange={(event) => setPlanEmoji(event.target.value)}>{emojiOptions.map((emoji) => <option key={emoji}>{emoji}</option>)}</select></label><label>活動<input value={planActivity} onChange={(event) => setPlanActivity(event.target.value)} placeholder="例如：跆拳道訓練" aria-label="活動名稱" /></label></div>
-              <div className="form-pair"><label>日期<input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} /></label><label>確實時間<input type="time" value={planTime} onChange={(event) => setPlanTime(event.target.value)} /></label></div>
-              <fieldset className="color-picker"><legend>活動顏色</legend><div>{planColors.map((color, index) => <button type="button" key={color} aria-label={`選擇${planColorNames[index]}`} title={planColorNames[index]} aria-pressed={planColor === color} className={planColor === color ? "selected" : ""} style={{ background: color }} onClick={() => setPlanColor(color)} />)}</div></fieldset>
-              <p className="field-note">🔔 提前一天提醒。</p>
-              {planError && <p className="form-error" role="alert">{planError}</p>}
-              <button className="primary-button" type="submit">加入計劃</button>
-            </form>
-          </section>
-
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} classes={data.classes} assignments={data.assignments} holidays={holidays} />
-
-          <section className="section-block plan-list-section">
-            <div className="outside-heading"><div><span className="eyebrow">Upcoming</span><h2>接下來</h2></div><span className="plan-total">{data.plans.filter((plan) => !plan.done).length} 項</span></div>
-            <div className="plan-list">{sortedPlans.map((plan) => <article className={`card plan-row ${plan.done ? "done" : ""}`} key={plan.id} style={{ borderLeftColor: plan.color }}>
-              <button className="plan-check" aria-label={plan.done ? "標記為未完成" : "標記為完成"} onClick={() => togglePlan(plan.id)}><span /></button>
-              <div className="plan-copy"><small>{parseIso(plan.date).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })}</small><strong>{plan.time}</strong><p>{plan.emoji ?? "📌"} {plan.activity} · 提前 1 天</p></div>
-              <div className="plan-actions"><button onClick={() => addToPhoneCalendar(plan)} aria-label={`把${plan.activity}加入手機行事曆`}>加入行事曆</button><button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
-            </article>)}</div>
-            {!sortedPlans.length && <p className="empty-plans">暫時沒有未來活動。<br />把下一件重要的事放進來吧。</p>}
-          </section>
         </>}
 
         {tab === "work" && <>
@@ -1031,19 +1026,13 @@ export default function Home() {
           </section>
         </>}
 
-        {tab === "diary" && <>
-          <section className="hero diary-hero"><span className="eyebrow">Daily note</span><h1>今天，<br /><em>想留下甚麼？</em></h1><p>{todayLabel}</p></section>
-          <section className="card diary-card"><textarea value={diaryText} onChange={e => setDiaryText(e.target.value)} placeholder="寫下一件值得記住的小事、一個念頭，或只是今天的心情……" aria-label="今日日記" /><div className="diary-actions"><span>{diaryText.length} 字</span><button className="primary-button small" onClick={saveDiary}>儲存日記</button></div></section>
-          <section className="whisper-card"><span className="eyebrow">Tonight&apos;s whisper</span><blockquote>「生活不是被安排好的日程，<br />而是你願意記住的那些片刻。」</blockquote></section>
-          <MiniCalendar markedDates={markedDates} workouts={data.workouts ?? {}} shifts={data.shifts} jobs={data.jobs} diary={data.diary} plans={data.plans} classes={data.classes} assignments={data.assignments} holidays={holidays} />
-        </>}
       </div>
 
       <nav className="bottom-nav" aria-label="主要導覽">
         <button className={tab === "home" ? "active" : ""} onClick={() => changeTab("home")}><span>⌂</span>今天</button>
-        <button className={tab === "plan" ? "active" : ""} onClick={() => changeTab("plan")}><span>🎓</span>校園</button>
-        <button className={tab === "work" ? "active" : ""} onClick={() => changeTab("work")}><span>◷</span>工時</button>
-        <button className={tab === "diary" ? "active" : ""} onClick={() => changeTab("diary")}><span>✦</span>日記</button>
+        <button className={tab === "activity" ? "active" : ""} onClick={() => changeTab("activity")}><span>＋</span>新增活動</button>
+        <button className={tab === "campus" ? "active" : ""} onClick={() => changeTab("campus")}><span>🎓</span>校園</button>
+        <button className={tab === "work" ? "active" : ""} onClick={() => changeTab("work")}><span>◷</span>公事</button>
       </nav>
     </main>
   );

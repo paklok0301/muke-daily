@@ -65,7 +65,7 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .primary-button:hover { box-shadow: 0 8px 24px rgba(241,233,223,.12); }
 .primary-button:active { transform: scale(.97); }
 
-.task-card, .calendar-card, .history-card, .diary-card { padding: 25px; margin-bottom: 18px; }
+.task-card, .calendar-card, .history-card { padding: 25px; margin-bottom: 18px; }
 .section-heading, .outside-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .section-heading h2, .outside-heading h2 { font-family: "Iowan Old Style", Baskerville, Georgia, serif; font-size: 25px; line-height: 1; font-weight: 400; margin: 0; }
 .count { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 50%; background: var(--red-dark); font-family: Georgia, serif; }
@@ -255,12 +255,6 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .pay-actions button:first-child { color: var(--muted); }
 .pay-actions button:active { color: var(--red); }
 
-.diary-card textarea { width: 100%; min-height: 245px; resize: vertical; background: transparent; border: 0; color: var(--ivory); outline: 0; font-family: "Iowan Old Style", Baskerville, Georgia, "PingFang HK", serif; font-size: 20px; line-height: 1.8; }
-.diary-actions { border-top: 1px solid var(--line); padding-top: 15px; display: flex; justify-content: space-between; align-items: center; color: var(--dim); font-size: 10px; }
-.primary-button.small { min-height: 39px; margin: 0; }
-.whisper-card { margin: 18px 0; border-left: 1px solid var(--red); padding: 24px 20px; }
-.whisper-card blockquote { font-family: "Iowan Old Style", Baskerville, Georgia, "PingFang HK", serif; font-size: 19px; line-height: 1.65; color: var(--muted); margin: 0; }
-
 .plan-hero h1, .campus-hero h1 { font-size: clamp(42px, 12vw, 58px); }
 .plan-hero-after { margin-top: 44px; }
 .plan-form-card { padding: 24px; margin-bottom: 18px; }
@@ -328,8 +322,7 @@ button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transpare
 .preview-widget small { color: rgba(241,233,223,.55); font-size: 7px; letter-spacing: .1em; }
 .preview-widget strong { font-size: 13px; }
 .preview-widget span { color: rgba(241,233,223,.72); font-size: 10px; }
-.preview-notification { position: relative; min-height: 80px; padding: 12px; margin-top: 8px; border: 1px solid rgba(255,255,255,.13); border-radius: 20px; background: rgba(55,48,50,.65); backdrop-filter: blur(24px); display: grid; grid-template-columns: 37px 1fr; align-items: start; gap: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.2); }
-.preview-notification > span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: var(--red-dark); color: var(--ivory); font: 18px Georgia, serif; }
+.preview-notification { position: relative; min-height: 80px; padding: 14px 16px; margin-top: 8px; border: 1px solid rgba(255,255,255,.13); border-radius: 20px; background: rgba(55,48,50,.65); backdrop-filter: blur(24px); display: block; box-shadow: 0 12px 30px rgba(0,0,0,.2); }
 .preview-notification > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .preview-notification small { color: rgba(241,233,223,.55); font-size: 7px; }
 .preview-notification strong { font-size: 11px; }
