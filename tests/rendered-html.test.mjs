@@ -28,7 +28,7 @@ test("renders the Muke mobile app shell", async () => {
   assert.match(html, /aria-label="生活月曆"/);
   assert.match(html, /aria-label="月曆檢視"/);
   assert.match(html, />月<\/button>.*>週<\/button>.*>日<\/button>/s);
-  assert.match(html, />計劃<\/button>/);
+  assert.match(html, />校園<\/button>/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
 
@@ -52,8 +52,20 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(page, /工時需要大於 0 分鐘/);
   assert.match(page, /startViewTransition/);
   assert.match(page, /planColors = \[/);
-  assert.match(page, /showNotification\("暮刻提醒"/);
+  assert.match(page, /showNotification\(`🗓️ 明日行程/);
+  assert.match(page, /功課死線提醒/);
   assert.match(page, /text\/calendar/);
+  assert.match(page, /type RecurringClass/);
+  assert.match(page, /type Assignment/);
+  assert.match(page, /function classOccursOn/);
+  assert.match(page, /每週課表/);
+  assert.match(page, /功課死線/);
+  assert.match(page, /下載鎖屏行事曆/);
+  assert.match(page, /RRULE:FREQ=WEEKLY/);
+  assert.match(page, /TRIGGER:-P1D/);
+  assert.match(page, /TRIGGER:-P7D/);
+  assert.match(page, /agenda:\$\{tomorrowKey\}/);
+  assert.match(page, /emojiOptions/);
   assert.match(page, /堂數／節數/);
   assert.match(page, /實收金額 HK\$/);
   assert.match(page, /shiftEarnings\(shift, job\)/);

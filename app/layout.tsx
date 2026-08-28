@@ -4,13 +4,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://paklok0301.github.io"),
   title: "暮刻 — 你的日常與工時",
-  description: "一個安靜的個人日常助手，記錄待辦、兼職工時、工資、健身和每天的心情。",
+  description: "一個安靜的個人日常助手，記錄課表、功課死線、待辦、兼職工時、健身和每天的心情。",
   applicationName: "暮刻",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "暮刻" },
   icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
   openGraph: {
     title: "暮刻 — 你的日常與工時",
-    description: "日程、工時、健身與日記，都安靜地留在同一個地方。",
+    description: "課表、功課、日程、工時與日記，都安靜地留在同一個地方。",
     type: "website",
     locale: "zh_HK",
     url: "https://paklok0301.github.io/muke-daily/",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "暮刻 — 你的日常與工時",
-    description: "日程、工時、健身與日記，都安靜地留在同一個地方。",
+    description: "課表、功課、日程、工時與日記，都安靜地留在同一個地方。",
     images: ["/muke-daily/og.png"],
   },
 };

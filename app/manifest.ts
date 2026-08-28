@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "暮刻 — 日常與工時",
     short_name: "暮刻",
-    description: "記錄待辦、兼職工時、工資、健身和每天的心情。",
+    description: "記錄每週課表、功課死線、待辦、兼職工時、健身和每天的心情。",
     start_url: "/",
     display: "standalone",
     background_color: "#0b0a0a",
