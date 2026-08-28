@@ -21,6 +21,7 @@ type Task = { id: string; text: string; done: boolean };
 type PlanItem = { id: string; activity: string; date: string; time: string; color: string; emoji?: string; reminderDays?: number; done: boolean; notified: boolean; calendarAdded?: boolean };
 type RecurringClass = { id: string; name: string; emoji: string; weekday: number; startTime: string; endTime: string; startDate: string; endDate: string; location?: string; color: string };
 type Assignment = { id: string; course: string; title: string; emoji: string; dueDate: string; dueTime: string; color: string; done: boolean; reminded: boolean; calendarAdded?: boolean };
+type AgendaItem = { id: string; time: string; endTime?: string; emoji: string; label: string; detail?: string; kind: "活動" | "課堂" | "死線"; color: string };
 type WorkoutType = "胸" | "背" | "肩" | "腿";
 type AppData = {
   jobs: Job[];
@@ -34,6 +35,8 @@ type AppData = {
   workouts: Record<string, WorkoutType>;
   campusCalendarDownloaded: boolean;
   notificationSetupDone: boolean;
+  scheduleReminderDays: number;
+  assignmentReminderDays: number;
   lastBackupAt?: string;
 };
 
@@ -66,6 +69,8 @@ const defaultData: AppData = {
   workouts: {},
   campusCalendarDownloaded: false,
   notificationSetupDone: false,
+  scheduleReminderDays: 1,
+  assignmentReminderDays: 7,
 };
 
 function minutesBetween(start: string, end: string, breakMinutes = 0) {
@@ -113,6 +118,23 @@ function classOccursOn(item: RecurringClass, dateKey: string) {
 
 function classesOnDate(classes: RecurringClass[], dateKey: string) {
   return classes.filter((item) => classOccursOn(item, dateKey)).sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
+function agendaOnDate(plans: PlanItem[], classes: RecurringClass[], assignments: Assignment[], dateKey: string): AgendaItem[] {
+  return [
+    ...plans.filter((item) => !item.done && item.date === dateKey).map((item) => ({ id: `plan-${item.id}`, time: item.time, emoji: item.emoji ?? "📌", label: item.activity, kind: "活動" as const, color: item.color })),
+    ...classesOnDate(classes, dateKey).map((item) => ({ id: `class-${item.id}-${dateKey}`, time: item.startTime, endTime: item.endTime, emoji: item.emoji, label: item.name, detail: item.location, kind: "課堂" as const, color: item.color })),
+    ...assignments.filter((item) => !item.done && item.dueDate === dateKey).map((item) => ({ id: `assignment-${item.id}`, time: item.dueTime, emoji: item.emoji, label: `${item.course} · ${item.title}`, kind: "死線" as const, color: item.color })),
+  ].sort((a, b) => a.time.localeCompare(b.time));
+}
+
+function agendaFingerprint(parts: string[]) {
+  let hash = 2166136261;
+  for (const character of [...parts].sort().join("\u001f")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function firstClassOccurrence(item: RecurringClass) {
@@ -277,6 +299,8 @@ export default function Home() {
   const [planColor, setPlanColor] = useState(planColors[4]);
   const [planEmoji, setPlanEmoji] = useState(emojiOptions[0]);
   const [planError, setPlanError] = useState("");
+  const [planFeedback, setPlanFeedback] = useState("");
+  const [addPlanToCalendar, setAddPlanToCalendar] = useState(true);
   const [showClassForm, setShowClassForm] = useState(false);
   const [className, setClassName] = useState("");
   const [classEmoji, setClassEmoji] = useState("🎓");
@@ -296,6 +320,8 @@ export default function Home() {
   const [assignmentDueTime, setAssignmentDueTime] = useState("23:59");
   const [assignmentColor, setAssignmentColor] = useState(planColors[6]);
   const [assignmentError, setAssignmentError] = useState("");
+  const [campusSelectedDate, setCampusSelectedDate] = useState(isoDate());
+  const [showReminderSettings, setShowReminderSettings] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
   const [holidays, setHolidays] = useState<Record<string, string>>({});
   const [showDataTools, setShowDataTools] = useState(false);
@@ -338,6 +364,8 @@ export default function Home() {
           assignments: Array.isArray(parsed.assignments) ? parsed.assignments : [],
           classReminderLog: Array.isArray(parsed.classReminderLog) ? parsed.classReminderLog : [],
           workouts: migratedWorkouts as Record<string, WorkoutType>,
+          scheduleReminderDays: [1, 2, 3].includes(Number(parsed.scheduleReminderDays)) ? Number(parsed.scheduleReminderDays) : 1,
+          assignmentReminderDays: [3, 7, 14].includes(Number(parsed.assignmentReminderDays)) ? Number(parsed.assignmentReminderDays) : 7,
         };
       }
     } catch {}
@@ -374,52 +402,77 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated || notificationPermission !== "granted") return;
-    const notifyUpcoming = () => {
+    let notificationInFlight = false;
+    const notifyUpcoming = async () => {
+      if (notificationInFlight) return;
       const now = Date.now();
       const day = 24 * 60 * 60 * 1000;
-      const tomorrowKey = isoDate(addDays(new Date(), 1));
-      const agendaKey = `agenda:${tomorrowKey}`;
-      const duePlans = data.plans.filter((plan) => !plan.done && !plan.notified && plan.date === tomorrowKey);
+      const reminderDateKey = isoDate(addDays(new Date(), data.scheduleReminderDays));
+      const reminderDateLabel = data.scheduleReminderDays === 1 ? "明日" : `${data.scheduleReminderDays} 日後`;
+      const duePlans = data.plans.filter((plan) => !plan.done && plan.date === reminderDateKey);
       const dueAssignments = data.assignments.filter((assignment) => {
         const dueAt = new Date(`${assignment.dueDate}T${assignment.dueTime}:00`).getTime();
-        return !assignment.done && !assignment.reminded && dueAt > now && dueAt - 7 * day <= now;
+        return !assignment.done && !assignment.reminded && dueAt > now && dueAt - data.assignmentReminderDays * day <= now;
       });
-      const dueClasses = classesOnDate(data.classes, tomorrowKey);
-      const tomorrowAssignments = data.assignments.filter((assignment) => !assignment.done && assignment.dueDate === tomorrowKey);
-      const tomorrowAgenda = [
+      const dueClasses = classesOnDate(data.classes, reminderDateKey);
+      const reminderDateAssignments = data.assignments.filter((assignment) => !assignment.done && assignment.dueDate === reminderDateKey);
+      const reminderAgenda = [
         ...duePlans.map((plan) => ({ time: plan.time, text: `${plan.emoji ?? "📌"} ${plan.activity}` })),
         ...dueClasses.map((item) => ({ time: item.startTime, text: `${item.emoji} ${item.name}` })),
-        ...tomorrowAssignments.map((item) => ({ time: item.dueTime, text: `${item.emoji} ${item.course} 截止` })),
+        ...reminderDateAssignments.map((item) => ({ time: item.dueTime, text: `${item.emoji} ${item.course} 截止` })),
       ].sort((a, b) => a.time.localeCompare(b.time));
-      const shouldSendAgenda = tomorrowAgenda.length > 0 && !data.classReminderLog.includes(agendaKey);
+      const agendaKey = `agenda:${data.scheduleReminderDays}:${reminderDateKey}:${agendaFingerprint([
+        ...duePlans.map((item) => `plan:${item.id}:${item.time}:${item.activity}`),
+        ...dueClasses.map((item) => `class:${item.id}:${item.startTime}:${item.name}`),
+        ...reminderDateAssignments.map((item) => `assignment:${item.id}:${item.dueTime}:${item.title}`),
+      ])}`;
+      const shouldSendAgenda = reminderAgenda.length > 0 && !data.classReminderLog.includes(agendaKey);
       if (!shouldSendAgenda && !dueAssignments.length) return;
-      navigator.serviceWorker.ready.then((registration) => {
-        if (shouldSendAgenda) registration.showNotification(`🗓️ 明日行程 · ${tomorrowAgenda.length} 項`, {
-          body: tomorrowAgenda.map((item) => `${item.time} ${item.text}`).join(" · "),
-          icon: new URL("icon-192.png", document.baseURI).href,
-          badge: new URL("icon-192.png", document.baseURI).href,
-          tag: `agenda-${tomorrowKey}`,
-        });
-        for (const assignment of dueAssignments) registration.showNotification(`${assignment.emoji} 功課死線提醒`, {
-          body: `${assignment.course} · ${assignment.title} · ${assignment.dueDate} ${assignment.dueTime}`,
-          icon: new URL("icon-192.png", document.baseURI).href,
-          badge: new URL("icon-192.png", document.baseURI).href,
-          tag: `assignment-${assignment.id}`,
-        });
-      }).catch(() => undefined);
-      const planIds = new Set(duePlans.map((plan) => plan.id));
-      const assignmentIds = new Set(dueAssignments.map((assignment) => assignment.id));
-      setData((prev) => ({
-        ...prev,
-        plans: prev.plans.map((plan) => planIds.has(plan.id) ? { ...plan, notified: true } : plan),
-        assignments: prev.assignments.map((assignment) => assignmentIds.has(assignment.id) ? { ...assignment, reminded: true } : assignment),
-        classReminderLog: [...prev.classReminderLog.filter((key) => (key.split(":").at(-1) ?? "") >= isoDate(addDays(new Date(), -14))), ...(shouldSendAgenda ? [agendaKey] : [])],
-      }));
+      notificationInFlight = true;
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        let agendaSent = false;
+        const sentAssignmentIds = new Set<string>();
+        if (shouldSendAgenda) {
+          try {
+            await registration.showNotification(`🗓️ ${reminderDateLabel}行程 · ${reminderAgenda.length} 項`, {
+              body: reminderAgenda.map((item) => `${item.time} ${item.text}`).join(" · "),
+              icon: new URL("icon-192.png", document.baseURI).href,
+              badge: new URL("icon-192.png", document.baseURI).href,
+              tag: `agenda-${reminderDateKey}`,
+            });
+            agendaSent = true;
+          } catch {}
+        }
+        for (const assignment of dueAssignments) {
+          try {
+            await registration.showNotification(`${assignment.emoji} 功課死線提醒`, {
+              body: `${assignment.course} · ${assignment.title} · ${assignment.dueDate} ${assignment.dueTime}`,
+              icon: new URL("icon-192.png", document.baseURI).href,
+              badge: new URL("icon-192.png", document.baseURI).href,
+              tag: `assignment-${assignment.id}`,
+            });
+            sentAssignmentIds.add(assignment.id);
+          } catch {}
+        }
+        if (!agendaSent && !sentAssignmentIds.size) return;
+        const planIds = new Set(duePlans.map((plan) => plan.id));
+        setData((prev) => ({
+          ...prev,
+          plans: agendaSent ? prev.plans.map((plan) => planIds.has(plan.id) ? { ...plan, notified: true } : plan) : prev.plans,
+          assignments: prev.assignments.map((assignment) => sentAssignmentIds.has(assignment.id) ? { ...assignment, reminded: true } : assignment),
+          classReminderLog: agendaSent ? [...prev.classReminderLog.filter((key) => (key.split(":")[2] ?? "") >= isoDate(addDays(new Date(), -14))), agendaKey] : prev.classReminderLog,
+        }));
+      } catch {
+        // Keep reminder flags untouched so the next interval can retry.
+      } finally {
+        notificationInFlight = false;
+      }
     };
-    notifyUpcoming();
-    const timer = window.setInterval(notifyUpcoming, 30_000);
+    void notifyUpcoming();
+    const timer = window.setInterval(() => { void notifyUpcoming(); }, 30_000);
     return () => window.clearInterval(timer);
-  }, [data.assignments, data.classReminderLog, data.classes, data.plans, hydrated, notificationPermission]);
+  }, [data.assignmentReminderDays, data.assignments, data.classReminderLog, data.classes, data.plans, data.scheduleReminderDays, hydrated, notificationPermission]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -464,19 +517,9 @@ export default function Home() {
   const todayPlans = useMemo(() => data.plans.filter((plan) => plan.date === isoDate() && !plan.done).sort((a, b) => a.time.localeCompare(b.time)), [data.plans]);
   const todayClasses = useMemo(() => classesOnDate(data.classes, isoDate()), [data.classes]);
   const todayAssignments = useMemo(() => data.assignments.filter((assignment) => assignment.dueDate === isoDate() && !assignment.done).sort((a, b) => a.dueTime.localeCompare(b.dueTime)), [data.assignments]);
-  const todayLockscreenItems = useMemo(() => [
-    ...todayPlans.map((item) => ({ id: `plan-${item.id}`, time: item.time, emoji: item.emoji ?? "📌", label: item.activity, kind: "活動", color: item.color })),
-    ...todayClasses.map((item) => ({ id: `class-${item.id}`, time: item.startTime, emoji: item.emoji, label: item.name, kind: "課堂", color: item.color })),
-    ...todayAssignments.map((item) => ({ id: `assignment-${item.id}`, time: item.dueTime, emoji: item.emoji, label: `${item.course} · ${item.title}`, kind: "死線", color: item.color })),
-  ].sort((a, b) => a.time.localeCompare(b.time)), [todayAssignments, todayClasses, todayPlans]);
-  const tomorrowPreview = useMemo(() => {
-    const key = isoDate(addDays(new Date(), 1));
-    return [
-      ...data.plans.filter((item) => !item.done && item.date === key).map((item) => ({ time: item.time, text: `${item.emoji ?? "📌"} ${item.activity}` })),
-      ...classesOnDate(data.classes, key).map((item) => ({ time: item.startTime, text: `${item.emoji} ${item.name}` })),
-      ...data.assignments.filter((item) => !item.done && item.dueDate === key).map((item) => ({ time: item.dueTime, text: `${item.emoji} ${item.course} 截止` })),
-    ].sort((a, b) => a.time.localeCompare(b.time));
-  }, [data.assignments, data.classes, data.plans]);
+  const campusWeekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => isoDate(addDays(new Date(), index))), []);
+  const campusSelectedAgenda = useMemo(() => agendaOnDate(data.plans, data.classes, data.assignments, campusSelectedDate), [campusSelectedDate, data.assignments, data.classes, data.plans]);
+  const nextAssignment = useMemo(() => sortedAssignments.find((item) => !item.done && new Date(`${item.dueDate}T${item.dueTime}:00`).getTime() >= Date.now()), [sortedAssignments]);
   const nextSchedule = useMemo(() => {
     const now = new Date();
     const candidates: { id: string; label: string; date: string; time: string; emoji: string; destination: "activity" | "campus" }[] = [
@@ -530,12 +573,19 @@ export default function Home() {
       setPlanError("請填寫活動、日期和確實時間。");
       return;
     }
+    const nextPlan: PlanItem = {
+      id: crypto.randomUUID(), activity: planActivity.trim(), date: planDate, time: planTime,
+      color: planColor, emoji: planEmoji, reminderDays: data.scheduleReminderDays,
+      done: false, notified: false, calendarAdded: addPlanToCalendar,
+    };
     setPlanError("");
     setData((prev) => ({
       ...prev,
       campusCalendarDownloaded: false,
-      plans: [...prev.plans, { id: crypto.randomUUID(), activity: planActivity.trim(), date: planDate, time: planTime, color: planColor, emoji: planEmoji, reminderDays: 1, done: false, notified: false, calendarAdded: false }],
+      plans: [...prev.plans, nextPlan],
     }));
+    if (addPlanToCalendar) downloadPlanCalendar(nextPlan);
+    setPlanFeedback(addPlanToCalendar ? "活動已儲存並下載。請在 iPhone 開啟 .ics 檔，再按「加入」。" : "活動已儲存在暮刻；之後仍可在下方加入手機行事曆。");
     setPlanActivity("");
   }
 
@@ -577,7 +627,7 @@ export default function Home() {
   }
 
   function toggleAssignment(id: string) {
-    setData((prev) => ({ ...prev, assignments: prev.assignments.map((item) => item.id === id ? { ...item, done: !item.done } : item) }));
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: false, assignments: prev.assignments.map((item) => item.id === id ? { ...item, done: !item.done } : item) }));
   }
 
   function deleteAssignment(id: string) {
@@ -585,7 +635,7 @@ export default function Home() {
   }
 
   function togglePlan(id: string) {
-    setData((prev) => ({ ...prev, plans: prev.plans.map((plan) => plan.id === id ? { ...plan, done: !plan.done } : plan) }));
+    setData((prev) => ({ ...prev, campusCalendarDownloaded: false, plans: prev.plans.map((plan) => plan.id === id ? { ...plan, done: !plan.done } : plan) }));
   }
 
   function deletePlan(id: string) {
@@ -602,17 +652,40 @@ export default function Home() {
     if (permission !== "default") setData((prev) => ({ ...prev, notificationSetupDone: true }));
   }
 
-  function addToPhoneCalendar(plan: PlanItem) {
+  function updateScheduleReminderDays(days: number) {
+    setData((prev) => ({
+      ...prev,
+      scheduleReminderDays: days,
+      campusCalendarDownloaded: false,
+      classReminderLog: [],
+      plans: prev.plans.map((item) => ({ ...item, reminderDays: days, notified: false })),
+    }));
+  }
+
+  function updateAssignmentReminderDays(days: number) {
+    setData((prev) => ({
+      ...prev,
+      assignmentReminderDays: days,
+      campusCalendarDownloaded: false,
+      assignments: prev.assignments.map((item) => ({ ...item, reminded: false })),
+    }));
+  }
+
+  function downloadPlanCalendar(plan: PlanItem) {
     const start = new Date(`${plan.date}T${plan.time}:00`);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
     const safeActivity = escapeCalendarText(`${plan.emoji ?? "📌"} ${plan.activity}`);
     const content = [
       "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Muke//Plan//ZH-HK", "BEGIN:VEVENT",
       `UID:${plan.id}@muke`, `DTSTART:${calendarTime(start)}`, `DTEND:${calendarTime(end)}`,
-      `SUMMARY:${safeActivity}`, "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:明天：${safeActivity}`, "END:VALARM",
+      `SUMMARY:${safeActivity}`, "BEGIN:VALARM", `TRIGGER:-P${data.scheduleReminderDays}D`, "ACTION:DISPLAY", `DESCRIPTION:${data.scheduleReminderDays} 日後：${safeActivity}`, "END:VALARM",
       "END:VEVENT", "END:VCALENDAR",
     ].join("\r\n");
     downloadCalendar(content, `${plan.date}-${plan.time.replace(":", "")}-暮刻.ics`);
+  }
+
+  function addToPhoneCalendar(plan: PlanItem) {
+    downloadPlanCalendar(plan);
     setData((prev) => ({ ...prev, plans: prev.plans.map((item) => item.id === plan.id ? { ...item, calendarAdded: true } : item) }));
   }
 
@@ -623,7 +696,7 @@ export default function Home() {
     const content = [
       "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Muke//Assignment//ZH-HK", "BEGIN:VEVENT",
       `UID:${assignment.id}@muke`, `DTSTART:${calendarTime(due)}`, `DTEND:${calendarTime(end)}`,
-      `SUMMARY:${summary}`, "BEGIN:VALARM", "TRIGGER:-P7D", "ACTION:DISPLAY", `DESCRIPTION:一週後死線：${summary}`, "END:VALARM",
+      `SUMMARY:${summary}`, "BEGIN:VALARM", `TRIGGER:-P${data.assignmentReminderDays}D`, "ACTION:DISPLAY", `DESCRIPTION:${data.assignmentReminderDays} 日後死線：${summary}`, "END:VALARM",
       "END:VEVENT", "END:VCALENDAR",
     ].join("\r\n");
     downloadCalendar(content, `${assignment.dueDate}-${assignment.course}-功課.ics`);
@@ -641,19 +714,19 @@ export default function Home() {
       const summary = escapeCalendarText(`${item.emoji} ${item.name}`);
       events.push("BEGIN:VEVENT", `UID:${item.id}@muke`, `DTSTART:${calendarTime(start)}`, `DTEND:${calendarTime(end)}`, `RRULE:FREQ=WEEKLY;UNTIL=${until}`, `SUMMARY:${summary}`);
       if (item.location) events.push(`LOCATION:${escapeCalendarText(item.location)}`);
-      events.push("BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:明天上課：${summary}`, "END:VALARM", "END:VEVENT");
+      events.push("BEGIN:VALARM", `TRIGGER:-P${data.scheduleReminderDays}D`, "ACTION:DISPLAY", `DESCRIPTION:${data.scheduleReminderDays} 日後上課：${summary}`, "END:VALARM", "END:VEVENT");
     }
     for (const assignment of data.assignments.filter((item) => !item.done)) {
       const due = new Date(`${assignment.dueDate}T${assignment.dueTime}:00`);
       const end = new Date(due.getTime() + 30 * 60 * 1000);
       const summary = escapeCalendarText(`${assignment.emoji} ${assignment.course} · ${assignment.title}`);
-      events.push("BEGIN:VEVENT", `UID:${assignment.id}@muke`, `DTSTART:${calendarTime(due)}`, `DTEND:${calendarTime(end)}`, `SUMMARY:${summary}`, "BEGIN:VALARM", "TRIGGER:-P7D", "ACTION:DISPLAY", `DESCRIPTION:一週後死線：${summary}`, "END:VALARM", "END:VEVENT");
+      events.push("BEGIN:VEVENT", `UID:${assignment.id}@muke`, `DTSTART:${calendarTime(due)}`, `DTEND:${calendarTime(end)}`, `SUMMARY:${summary}`, "BEGIN:VALARM", `TRIGGER:-P${data.assignmentReminderDays}D`, "ACTION:DISPLAY", `DESCRIPTION:${data.assignmentReminderDays} 日後死線：${summary}`, "END:VALARM", "END:VEVENT");
     }
     for (const plan of data.plans.filter((item) => !item.done)) {
       const start = new Date(`${plan.date}T${plan.time}:00`);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       const summary = escapeCalendarText(`${plan.emoji ?? "📌"} ${plan.activity}`);
-      events.push("BEGIN:VEVENT", `UID:${plan.id}@muke`, `DTSTART:${calendarTime(start)}`, `DTEND:${calendarTime(end)}`, `SUMMARY:${summary}`, "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:明天安排：${summary}`, "END:VALARM", "END:VEVENT");
+      events.push("BEGIN:VEVENT", `UID:${plan.id}@muke`, `DTSTART:${calendarTime(start)}`, `DTEND:${calendarTime(end)}`, `SUMMARY:${summary}`, "BEGIN:VALARM", `TRIGGER:-P${data.scheduleReminderDays}D`, "ACTION:DISPLAY", `DESCRIPTION:${data.scheduleReminderDays} 日後安排：${summary}`, "END:VALARM", "END:VEVENT");
     }
     const content = ["BEGIN:VCALENDAR", "VERSION:2.0", "CALSCALE:GREGORIAN", "PRODID:-//Muke//Campus//ZH-HK", ...events, "END:VCALENDAR"].join("\r\n");
     downloadCalendar(content, "暮刻-校園行事曆.ics");
@@ -825,6 +898,8 @@ export default function Home() {
         workouts: imported.workouts && typeof imported.workouts === "object" ? imported.workouts : {},
         campusCalendarDownloaded: Boolean(imported.campusCalendarDownloaded),
         notificationSetupDone: Boolean(imported.notificationSetupDone),
+        scheduleReminderDays: [1, 2, 3].includes(Number(imported.scheduleReminderDays)) ? Number(imported.scheduleReminderDays) : 1,
+        assignmentReminderDays: [3, 7, 14].includes(Number(imported.assignmentReminderDays)) ? Number(imported.assignmentReminderDays) : 7,
         lastBackupAt: typeof imported.lastBackupAt === "string" ? imported.lastBackupAt : undefined,
       };
       setData(restored);
@@ -880,15 +955,16 @@ export default function Home() {
 
           <section className="card campus-widget">
             <div className="campus-widget-heading">
-              <div><span className="eyebrow">Campus today</span><h2>🎓 今日校園</h2></div>
+              <div><span className="eyebrow">Today on deck</span><h2>🗓️ 今日行程</h2></div>
               <button className="widget-link" onClick={() => changeTab("campus")}>管理 ›</button>
             </div>
             <div className="campus-day-list">
+              {todayPlans.map((item) => <div className="campus-day-row" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji ?? "📌"}</span><div><small>{item.time} · 活動</small><strong>{item.activity}</strong></div></div>)}
               {todayClasses.map((item) => <div className="campus-day-row" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji}</span><div><small>{item.startTime}—{item.endTime}</small><strong>{item.name}</strong>{item.location && <em>⌖ {item.location}</em>}</div></div>)}
               {todayAssignments.map((item) => <div className="campus-day-row assignment" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji}</span><div><small>今天 {item.dueTime} 截止</small><strong>{item.course} · {item.title}</strong></div></div>)}
-              {!todayClasses.length && !todayAssignments.length && <div className="campus-empty"><span>☁️</span><div><strong>今天沒有課堂或死線</strong><small>可以把注意力留給真正重要的事。</small></div></div>}
+              {!todayPlans.length && !todayClasses.length && !todayAssignments.length && <div className="campus-empty"><span>☁️</span><div><strong>今天沒有活動、課堂或死線</strong><small>可以把注意力留給真正重要的事。</small></div></div>}
             </div>
-            {!data.campusCalendarDownloaded && <><button className="campus-calendar-button" onClick={exportCampusCalendar}>下載鎖屏行事曆</button><p className="lockscreen-steps">匯入 iPhone 後：長按鎖屏 → 自訂 → 加入「日曆」小工具。</p></>}
+            {!data.campusCalendarDownloaded && <><button className="campus-calendar-button" onClick={exportCampusCalendar}>更新手機行事曆</button><p className="lockscreen-steps">包含普通活動、課堂與功課；在 iPhone 開啟 .ics 後按「加入全部」。</p></>}
           </section>
 
           <section className="card daily-brief-card">
@@ -921,17 +997,19 @@ export default function Home() {
         </>}
 
         {tab === "activity" && <>
-          <section className="hero plan-hero"><span className="eyebrow">New event</span><h1>把下一件事，<br /><em>放進日程。</em></h1><p>設定日期、確實時間和顏色，暮刻會在前一天提醒你。</p></section>
+          <section className="hero plan-hero"><span className="eyebrow">New event</span><h1>把下一件事，<br /><em>放進日程。</em></h1><p>設定日期、時間和顏色；預設會同時下載到手機行事曆。</p></section>
 
           <section className="card plan-form-card">
             <div className="section-heading"><div><span className="eyebrow">Plan ahead</span><h2>新增活動</h2></div><span className="count">＋</span></div>
             <form className="plan-form" onSubmit={addPlan}>
-              <div className="form-pair emoji-name-pair"><label>Emoji<select value={planEmoji} onChange={(event) => setPlanEmoji(event.target.value)}>{emojiOptions.map((emoji) => <option key={emoji}>{emoji}</option>)}</select></label><label>活動<input value={planActivity} onChange={(event) => setPlanActivity(event.target.value)} placeholder="例如：跆拳道訓練" aria-label="活動名稱" /></label></div>
+              <div className="form-pair emoji-name-pair"><label>Emoji<select value={planEmoji} onChange={(event) => setPlanEmoji(event.target.value)}>{emojiOptions.map((emoji) => <option key={emoji}>{emoji}</option>)}</select></label><label>活動<input value={planActivity} onChange={(event) => { setPlanActivity(event.target.value); setPlanFeedback(""); }} placeholder="例如：跆拳道訓練" aria-label="活動名稱" /></label></div>
               <div className="form-pair"><label>日期<input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} /></label><label>確實時間<input type="time" value={planTime} onChange={(event) => setPlanTime(event.target.value)} /></label></div>
               <fieldset className="color-picker"><legend>活動顏色</legend><div>{planColors.map((color, index) => <button type="button" key={color} aria-label={`選擇${planColorNames[index]}`} title={planColorNames[index]} aria-pressed={planColor === color} className={planColor === color ? "selected" : ""} style={{ background: color }} onClick={() => setPlanColor(color)} />)}</div></fieldset>
-              <p className="field-note">🔔 提前一天提醒。</p>
+              <label className="calendar-download-option"><input type="checkbox" checked={addPlanToCalendar} onChange={(event) => setAddPlanToCalendar(event.target.checked)} /><span><strong>同時下載到手機行事曆</strong><small>iPhone 開啟 .ics 檔後按「加入」，活動才會出現在鎖屏日曆。</small></span></label>
+              <p className="field-note">🔔 提前 {data.scheduleReminderDays} 天提醒。</p>
               {planError && <p className="form-error" role="alert">{planError}</p>}
-              <button className="primary-button" type="submit">加入活動</button>
+              <button className="primary-button" type="submit">{addPlanToCalendar ? "加入活動並下載" : "加入活動"}</button>
+              {planFeedback && <p className="form-success" role="status">{planFeedback}</p>}
             </form>
           </section>
 
@@ -941,15 +1019,46 @@ export default function Home() {
             <div className="outside-heading"><div><span className="eyebrow">Upcoming</span><h2>接下來</h2></div><span className="plan-total">{data.plans.filter((plan) => !plan.done).length} 項</span></div>
             <div className="plan-list">{sortedPlans.map((plan) => <article className={`card plan-row ${plan.done ? "done" : ""}`} key={plan.id} style={{ borderLeftColor: plan.color }}>
               <button className="plan-check" aria-label={plan.done ? "標記為未完成" : "標記為完成"} onClick={() => togglePlan(plan.id)}><span /></button>
-              <div className="plan-copy"><small>{parseIso(plan.date).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })}</small><strong>{plan.time}</strong><p>{plan.emoji ?? "📌"} {plan.activity} · 提前 1 天</p></div>
-              <div className="plan-actions">{!plan.calendarAdded && <button onClick={() => addToPhoneCalendar(plan)} aria-label={`把${plan.activity}加入手機行事曆`}>加入行事曆</button>}<button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
+              <div className="plan-copy"><small>{parseIso(plan.date).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })}</small><strong>{plan.time}</strong><p>{plan.emoji ?? "📌"} {plan.activity} · 提前 {data.scheduleReminderDays} 天</p></div>
+              <div className="plan-actions"><button onClick={() => addToPhoneCalendar(plan)} aria-label={`${plan.calendarAdded ? "重新下載" : "把"}${plan.activity}${plan.calendarAdded ? "的手機行事曆檔案" : "加入手機行事曆"}`}>{plan.calendarAdded ? "重新下載" : "加入行事曆"}</button><button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
             </article>)}</div>
             {!sortedPlans.length && <p className="empty-plans">暫時沒有未來活動。<br />把下一件重要的事放進來吧。</p>}
           </section>
         </>}
 
         {tab === "campus" && <>
-          <section className="hero campus-hero"><span className="eyebrow">Campus rhythm</span><h1>一堂輸入一次，<br /><em>整個學期都排好。</em></h1><p>課表、課室與功課死線，在今天需要時才出現。</p></section>
+          <section className="hero campus-hero"><span className="eyebrow">Campus rhythm</span><h1>先看下一堂，<br /><em>其他慢慢來。</em></h1><p>普通活動、每週課堂與功課死線，都會放進同一條時間線。</p></section>
+
+          <section className="card campus-week-card" aria-label="未來七日安排">
+            <div className="campus-week-heading"><div><span className="eyebrow">Next seven days</span><h2>這星期的節奏</h2></div><span>{campusWeekDates.reduce((total, dateKey) => total + agendaOnDate(data.plans, data.classes, data.assignments, dateKey).length, 0)} 項</span></div>
+            <div className="campus-week-strip" aria-label="選擇校園日期">
+              {campusWeekDates.map((dateKey) => {
+                const date = parseIso(dateKey);
+                const count = agendaOnDate(data.plans, data.classes, data.assignments, dateKey).length;
+                return <button key={dateKey} className={`${dateKey === campusSelectedDate ? "selected" : ""} ${dateKey === isoDate() ? "today" : ""}`} onClick={() => setCampusSelectedDate(dateKey)} aria-label={`${date.toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "long" })}，${count}項安排`} aria-pressed={dateKey === campusSelectedDate}><small>{date.toLocaleDateString("zh-HK", { weekday: "narrow" })}</small><strong>{date.getDate()}</strong><i>{count || "·"}</i></button>;
+              })}
+            </div>
+            <div className="campus-agenda-heading"><div><small>{campusSelectedDate === isoDate() ? "今天" : parseIso(campusSelectedDate).toLocaleDateString("zh-HK", { month: "long", day: "numeric" })}</small><strong>{parseIso(campusSelectedDate).toLocaleDateString("zh-HK", { weekday: "long" })}</strong></div>{nextAssignment && <span>下一死線 · {parseIso(nextAssignment.dueDate).toLocaleDateString("zh-HK", { month: "short", day: "numeric" })}</span>}</div>
+            <div className="campus-agenda-list">
+              {campusSelectedAgenda.map((item) => <article className="campus-agenda-row" key={item.id} style={{ borderLeftColor: item.color }}><time>{item.time}</time><span>{item.emoji}</span><div><small>{item.kind}{item.endTime ? ` · 至 ${item.endTime}` : ""}</small><strong>{item.label}</strong>{item.detail && <p>⌖ {item.detail}</p>}</div></article>)}
+              {!campusSelectedAgenda.length && <div className="campus-agenda-empty"><span>☾</span><div><strong>這天沒有安排</strong><small>空下來也沒關係；活動新增後會立即出現在這裡。</small></div></div>}
+            </div>
+          </section>
+
+          {showCampusSync && <section className="card notification-card campus-sync-card">
+            <div><span className="eyebrow">Phone calendar</span><h2>{!data.campusCalendarDownloaded ? "手機行事曆需要更新" : "開啟行程通知"}</h2><p>{!data.campusCalendarDownloaded ? `目前包含 ${data.plans.filter((item) => !item.done).length} 個活動、${data.classes.length} 組課堂和 ${data.assignments.filter((item) => !item.done).length} 個死線。下載後，請在 iPhone 開啟 .ics 並按「加入全部」。` : "允許通知後，暮刻在開啟時會提醒你接下來的安排。"}</p></div>
+            <div className="sync-actions">{!data.campusCalendarDownloaded && <button className="primary-button" onClick={exportCampusCalendar}>更新手機行事曆</button>}{!notificationsConfigured && <button className="quiet-action" onClick={enableNotifications}>開啟 App 通知</button>}</div>
+          </section>}
+
+          <section className="card campus-preferences-card">
+            <div className="section-heading"><div><span className="eyebrow">Personal rhythm</span><h2>提醒方式</h2></div><button className="text-button" onClick={() => setShowReminderSettings(!showReminderSettings)}>{showReminderSettings ? "完成" : "調整"}</button></div>
+            <p className="preference-summary">活動／課堂提前 {data.scheduleReminderDays} 天 · 功課提前 {data.assignmentReminderDays} 天</p>
+            {showReminderSettings && <div className="reminder-settings">
+              <label><span>活動與課堂</span><select value={data.scheduleReminderDays} onChange={(event) => updateScheduleReminderDays(Number(event.target.value))}><option value={1}>提前 1 天</option><option value={2}>提前 2 天</option><option value={3}>提前 3 天</option></select></label>
+              <label><span>功課死線</span><select value={data.assignmentReminderDays} onChange={(event) => updateAssignmentReminderDays(Number(event.target.value))}><option value={3}>提前 3 天</option><option value={7}>提前 7 天</option><option value={14}>提前 14 天</option></select></label>
+              <p>更改提醒時間後，「更新手機行事曆」會重新出現。這是因為網站不能在背景直接修改你已匯入的 iPhone 日曆。</p>
+            </div>}
+          </section>
 
           <section className="card academic-section">
             <div className="section-heading"><div><span className="eyebrow">Weekly timetable</span><h2>🎓 每週課表</h2></div><button className="text-button" onClick={() => setShowClassForm(!showClassForm)}>{showClassForm ? "收起" : "＋ 新增"}</button></div>
@@ -959,7 +1068,7 @@ export default function Home() {
               <div className="form-pair"><label>上課<input type="time" value={classStartTime} onChange={(event) => setClassStartTime(event.target.value)} /></label><label>下課<input type="time" value={classEndTime} onChange={(event) => setClassEndTime(event.target.value)} /></label></div>
               <div className="form-pair"><label>學期開始<input type="date" value={classStartDate} onChange={(event) => setClassStartDate(event.target.value)} /></label><label>學期完結<input type="date" value={classEndDate} onChange={(event) => setClassEndDate(event.target.value)} /></label></div>
               <fieldset className="color-picker"><legend>課堂顏色</legend><div>{planColors.map((color, index) => <button type="button" key={color} aria-label={`選擇${planColorNames[index]}`} aria-pressed={classColor === color} className={classColor === color ? "selected" : ""} style={{ background: color }} onClick={() => setClassColor(color)} />)}</div></fieldset>
-              <p className="field-note">設定一次後，月／週／日月曆會自動顯示每一週。🔔 提前一天提醒。</p>
+              <p className="field-note">設定一次後，月／週／日月曆會自動顯示每一週。🔔 提前 {data.scheduleReminderDays} 天提醒。</p>
               {classError && <p className="form-error" role="alert">{classError}</p>}
               <button className="primary-button" type="submit">加入整學期課表</button>
             </form>}
@@ -977,46 +1086,16 @@ export default function Home() {
               <label>功課／報告<input value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="例如：研究報告初稿" /></label>
               <div className="form-pair"><label>死線日期<input type="date" value={assignmentDueDate} onChange={(event) => setAssignmentDueDate(event.target.value)} /></label><label>時間<input type="time" value={assignmentDueTime} onChange={(event) => setAssignmentDueTime(event.target.value)} /></label></div>
               <fieldset className="color-picker"><legend>科目顏色</legend><div>{planColors.map((color, index) => <button type="button" key={color} aria-label={`選擇${planColorNames[index]}`} aria-pressed={assignmentColor === color} className={assignmentColor === color ? "selected" : ""} style={{ background: color }} onClick={() => setAssignmentColor(color)} />)}</div></fieldset>
-              <p className="field-note">🔔 暮刻會在死線前一星期提醒你。</p>
+              <p className="field-note">🔔 暮刻會在死線前 {data.assignmentReminderDays} 天提醒你。</p>
               {assignmentError && <p className="form-error" role="alert">{assignmentError}</p>}
               <button className="primary-button" type="submit">加入功課死線</button>
             </form>}
             <div className="academic-list">{sortedAssignments.map((item) => <article className={`academic-row assignment-row ${item.done ? "done" : ""}`} key={item.id} style={{ borderLeftColor: item.color }}>
-              <button className="assignment-check" onClick={() => toggleAssignment(item.id)} aria-label={item.done ? "標記未完成" : "標記完成"}>{item.done ? "✓" : item.emoji}</button><div className="academic-copy"><small>{parseIso(item.dueDate).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })} · {item.dueTime}</small><strong>{item.course}</strong><p>{item.title} · 提前 7 天提醒</p></div>
-              <div className="academic-row-actions">{!item.calendarAdded && <button onClick={() => addAssignmentToPhoneCalendar(item)} aria-label={`把${item.title}加入手機行事曆`}>行事曆</button>}<button onClick={() => deleteAssignment(item.id)} aria-label={`刪除${item.title}`}>刪除</button></div>
+              <button className="assignment-check" onClick={() => toggleAssignment(item.id)} aria-label={item.done ? "標記未完成" : "標記完成"}>{item.done ? "✓" : item.emoji}</button><div className="academic-copy"><small>{parseIso(item.dueDate).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })} · {item.dueTime}</small><strong>{item.course}</strong><p>{item.title} · 提前 {data.assignmentReminderDays} 天提醒</p></div>
+              <div className="academic-row-actions"><button onClick={() => addAssignmentToPhoneCalendar(item)} aria-label={`${item.calendarAdded ? "重新下載" : "把"}${item.title}${item.calendarAdded ? "的手機行事曆檔案" : "加入手機行事曆"}`}>{item.calendarAdded ? "重新下載" : "行事曆"}</button><button onClick={() => deleteAssignment(item.id)} aria-label={`刪除${item.title}`}>刪除</button></div>
             </article>)}</div>
             {!sortedAssignments.length && !showAssignmentForm && <p className="empty-plans">未有功課死線。<br />把作業、測驗或報告放進來吧。</p>}
           </section>
-
-          <section className="card lockscreen-preview" aria-label="iPhone 鎖屏小工具預覽">
-            <div className="preview-status"><span>9:41</span><span>●●● ︎◒</span></div>
-            <span className="preview-label">鎖屏預覽</span>
-            <h2>{new Date().toLocaleDateString("zh-HK", { weekday: "long", month: "long", day: "numeric" })}</h2>
-            <div className="preview-widget">
-              <div className="preview-widget-column schedule-column">
-                <div className="preview-widget-heading"><strong>🗓️ 今日行程</strong><b>{todayLockscreenItems.length}</b></div>
-                <div className="preview-widget-list">
-                  {todayLockscreenItems.map((item) => <div className="preview-widget-item" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji} {item.label}</span><small>{item.time} · {item.kind}</small></div>)}
-                  {!todayLockscreenItems.length && <p className="preview-widget-empty">今天未有安排</p>}
-                </div>
-              </div>
-              <div className="preview-widget-column todo-column">
-                <div className="preview-widget-heading"><strong>✅ 待辦</strong><b>{data.tasks.filter((item) => item.done).length}/{data.tasks.length}</b></div>
-                <div className="preview-widget-list">
-                  {sortedTasks.map((item) => <div className={`preview-task-item ${item.done ? "done" : ""}`} key={item.id}><i>{item.done ? "✓" : ""}</i><span>{item.text}</span></div>)}
-                  {!sortedTasks.length && <p className="preview-widget-empty">今天沒有待辦</p>}
-                </div>
-              </div>
-            </div>
-            <div className="preview-notification"><div><small>行程提醒 · 現在</small><strong>🗓️ 明日行程 · {tomorrowPreview.length} 項</strong><p>{tomorrowPreview.length ? tomorrowPreview.slice(0, 3).map((item) => `${item.time} ${item.text}`).join(" · ") : "明天暫時沒有課堂、活動或死線"}</p></div></div>
-            <div className="preview-notification secondary"><div><small>功課提醒 · 現在</small><strong>{sortedAssignments.find((item) => !item.done) ? `${sortedAssignments.find((item) => !item.done)?.emoji} 功課一週後到期` : "📝 功課死線提醒"}</strong><p>{sortedAssignments.find((item) => !item.done)?.title ?? "新增功課後會在死線前 7 天顯示"}</p></div></div>
-            <p className="preview-note">黑色每日總覽會列出全部活動、課堂、功課與待辦 · 實際 iPhone 通知樣式由 iOS 決定</p>
-          </section>
-
-          {showCampusSync && <section className="card notification-card campus-sync-card">
-            <div><span className="eyebrow">Lock screen sync</span><h2>把校園節奏放上鎖屏</h2><p>App 開啟時會檢查提醒；下載後由 iPhone 日曆負責在 App 關閉時通知。課堂／活動提前一天，功課提前一星期。</p></div>
-            <div className="sync-actions">{!data.campusCalendarDownloaded && <button className="primary-button" onClick={exportCampusCalendar}>下載鎖屏行事曆</button>}{!notificationsConfigured && <button className="quiet-action" onClick={enableNotifications}>開啟 App 通知</button>}</div>
-          </section>}
 
         </>}
 
