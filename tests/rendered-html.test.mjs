@@ -112,7 +112,7 @@ test("ships installable app assets and local persistence", async () => {
   assert.match(manifest, /display:\s*"standalone"/);
   assert.match(manifest, /purpose:\s*"maskable"/);
   assert.match(serviceWorker, /caches\.open/);
-  assert.match(serviceWorker, /muke-v10/);
+  assert.match(serviceWorker, /muke-v11/);
   assert.match(serviceWorker, /notificationclick/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(holidayRoute, /1823\.gov\.hk\/common\/ical\/tc\.ics/);
@@ -123,4 +123,29 @@ test("ships installable app assets and local persistence", async () => {
     access(new URL("../public/apple-touch-icon.png", import.meta.url)),
     access(new URL("../public/og.png", import.meta.url)),
   ]);
+});
+
+test("ships the native iPhone bridge and system integrations", async () => {
+  const [page, project, calendar, reminders, liveActivity, widget, appInfo] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../ios/project.yml", import.meta.url), "utf8"),
+    readFile(new URL("../ios/App/CalendarSyncService.swift", import.meta.url), "utf8"),
+    readFile(new URL("../ios/App/ReminderScheduler.swift", import.meta.url), "utf8"),
+    readFile(new URL("../ios/Widgets/AgendaLiveActivity.swift", import.meta.url), "utf8"),
+    readFile(new URL("../ios/Widgets/LockScreenAgendaWidget.swift", import.meta.url), "utf8"),
+    readFile(new URL("../ios/Config/App-Info.plist", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /messageHandlers\?\.mukeSync\?\.postMessage\(data\)/);
+  assert.match(page, /nativeMode/);
+  assert.match(project, /MukeWidgets/);
+  assert.match(project, /ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon/);
+  assert.match(calendar, /requestFullAccessToEvents/);
+  assert.match(calendar, /eventStore\.save/);
+  assert.match(reminders, /UNNotificationRequest/);
+  assert.match(reminders, /明日安排/);
+  assert.match(liveActivity, /ActivityConfiguration/);
+  assert.match(widget, /accessoryRectangular/);
+  assert.match(appInfo, /NSSupportsLiveActivities/);
+  await access(new URL("../ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png", import.meta.url));
 });

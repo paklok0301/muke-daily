@@ -1,0 +1,95 @@
+name: MukeDaily
+
+options:
+  bundleIdPrefix: com.paklok0301
+  deploymentTarget:
+    iOS: "17.0"
+  groupSortPosition: top
+  xcodeVersion: "16.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  MukeDaily:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: App
+      - path: Shared
+      - path: Widgets/DailyAgendaAttributes.swift
+      - path: Widgets/LiveActivityService.swift
+    info:
+      path: Config/App-Info.plist
+    entitlements:
+      path: Config/MukeDaily.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.paklok0301.mukedaily
+        PRODUCT_NAME: MukeDaily
+        INFOPLIST_FILE: Config/App-Info.plist
+        CODE_SIGN_ENTITLEMENTS: Config/MukeDaily.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SUPPORTS_MACCATALYST: NO
+    dependencies:
+      - target: MukeWidgets
+        embed: true
+      - sdk: ActivityKit.framework
+      - sdk: EventKit.framework
+      - sdk: UserNotifications.framework
+      - sdk: WidgetKit.framework
+
+  MukeWidgets:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Shared
+      - path: Widgets
+        excludes:
+          - LiveActivityService.swift
+    info:
+      path: Config/Widget-Info.plist
+    entitlements:
+      path: Config/MukeWidgets.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.paklok0301.mukedaily.widgets
+        PRODUCT_NAME: MukeWidgets
+        INFOPLIST_FILE: Config/Widget-Info.plist
+        CODE_SIGN_ENTITLEMENTS: Config/MukeWidgets.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        SUPPORTS_MACCATALYST: NO
+    dependencies:
+      - sdk: ActivityKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: WidgetKit.framework
+
+schemes:
+  MukeDaily:
+    build:
+      targets:
+        MukeDaily: all
+        MukeWidgets: all
+    run:
+      config: Debug
+    archive:
+      config: Release

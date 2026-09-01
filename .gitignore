@@ -2,5 +2,7 @@ node_modules/
 dist/
 gh-pages/
 .wrangler/
+.pnpm-store/
+ios/.build/
 .DS_Store
 work/*.tar.gz

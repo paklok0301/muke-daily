@@ -23,6 +23,8 @@ type RecurringClass = { id: string; name: string; emoji: string; weekday: number
 type Assignment = { id: string; course: string; title: string; emoji: string; dueDate: string; dueTime: string; color: string; done: boolean; reminded: boolean; calendarAdded?: boolean };
 type AgendaItem = { id: string; time: string; endTime?: string; emoji: string; label: string; detail?: string; kind: "活動" | "課堂" | "死線"; color: string };
 type WorkoutType = "胸" | "背" | "肩" | "腿";
+type NativeMessageHandler = { postMessage: (payload: unknown) => void };
+type NativeBridgeWindow = Window & { webkit?: { messageHandlers?: { mukeSync?: NativeMessageHandler; mukeNativeSettings?: NativeMessageHandler } } };
 type AppData = {
   jobs: Job[];
   shifts: Shift[];
@@ -292,6 +294,7 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("home");
   const [data, setData] = useState<AppData>(defaultData);
   const [hydrated, setHydrated] = useState(false);
+  const [nativeMode, setNativeMode] = useState(false);
   const [taskText, setTaskText] = useState("");
   const [planActivity, setPlanActivity] = useState("");
   const [planDate, setPlanDate] = useState(isoDate(addDays(new Date(), 1)));
@@ -373,6 +376,7 @@ export default function Home() {
     // Browser-only persisted state can only be hydrated after the server render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(nextData);
+    setNativeMode(Boolean((window as NativeBridgeWindow).webkit?.messageHandlers?.mukeSync));
     if ("Notification" in window) setNotificationPermission(Notification.permission);
     navigator.storage?.persisted?.().then(setStoragePersistent).catch(() => setStoragePersistent(null));
     setHydrated(true);
@@ -383,6 +387,7 @@ export default function Home() {
     if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      (window as NativeBridgeWindow).webkit?.messageHandlers?.mukeSync?.postMessage(data);
     } catch {
       // Surface failures from the external browser storage system to the user.
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -401,7 +406,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || notificationPermission !== "granted") return;
+    if (!hydrated || nativeMode || notificationPermission !== "granted") return;
     let notificationInFlight = false;
     const notifyUpcoming = async () => {
       if (notificationInFlight) return;
@@ -472,7 +477,7 @@ export default function Home() {
     void notifyUpcoming();
     const timer = window.setInterval(() => { void notifyUpcoming(); }, 30_000);
     return () => window.clearInterval(timer);
-  }, [data.assignmentReminderDays, data.assignments, data.classReminderLog, data.classes, data.plans, data.scheduleReminderDays, hydrated, notificationPermission]);
+  }, [data.assignmentReminderDays, data.assignments, data.classReminderLog, data.classes, data.plans, data.scheduleReminderDays, hydrated, nativeMode, notificationPermission]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -546,7 +551,7 @@ export default function Home() {
     return summary;
   }, { minutes: 0, pay: 0 }), [data.jobs, data.shifts]);
   const notificationsConfigured = data.notificationSetupDone || notificationPermission !== "default";
-  const showCampusSync = !data.campusCalendarDownloaded || !notificationsConfigured;
+  const showCampusSync = !nativeMode && (!data.campusCalendarDownloaded || !notificationsConfigured);
 
   function addTask(event: FormEvent) {
     event.preventDefault();
@@ -573,10 +578,11 @@ export default function Home() {
       setPlanError("請填寫活動、日期和確實時間。");
       return;
     }
+    const shouldDownloadCalendar = addPlanToCalendar && !nativeMode;
     const nextPlan: PlanItem = {
       id: crypto.randomUUID(), activity: planActivity.trim(), date: planDate, time: planTime,
       color: planColor, emoji: planEmoji, reminderDays: data.scheduleReminderDays,
-      done: false, notified: false, calendarAdded: addPlanToCalendar,
+      done: false, notified: false, calendarAdded: nativeMode || addPlanToCalendar,
     };
     setPlanError("");
     setData((prev) => ({
@@ -584,8 +590,8 @@ export default function Home() {
       campusCalendarDownloaded: false,
       plans: [...prev.plans, nextPlan],
     }));
-    if (addPlanToCalendar) downloadPlanCalendar(nextPlan);
-    setPlanFeedback(addPlanToCalendar ? "活動已儲存並下載。請在 iPhone 開啟 .ics 檔，再按「加入」。" : "活動已儲存在暮刻；之後仍可在下方加入手機行事曆。");
+    if (shouldDownloadCalendar) downloadPlanCalendar(nextPlan);
+    setPlanFeedback(nativeMode ? "活動已送往 iPhone；獲授權後會自動同步行事曆與鎖屏。" : addPlanToCalendar ? "活動已儲存並下載。請在 iPhone 開啟 .ics 檔，再按「加入」。" : "活動已儲存在暮刻；之後仍可在下方加入手機行事曆。");
     setPlanActivity("");
   }
 
@@ -650,6 +656,10 @@ export default function Home() {
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
     if (permission !== "default") setData((prev) => ({ ...prev, notificationSetupDone: true }));
+  }
+
+  function openNativeSettings() {
+    (window as NativeBridgeWindow).webkit?.messageHandlers?.mukeNativeSettings?.postMessage({ action: "open-native-settings" });
   }
 
   function updateScheduleReminderDays(days: number) {
@@ -964,7 +974,7 @@ export default function Home() {
               {todayAssignments.map((item) => <div className="campus-day-row assignment" key={item.id} style={{ borderLeftColor: item.color }}><span>{item.emoji}</span><div><small>今天 {item.dueTime} 截止</small><strong>{item.course} · {item.title}</strong></div></div>)}
               {!todayPlans.length && !todayClasses.length && !todayAssignments.length && <div className="campus-empty"><span>☁️</span><div><strong>今天沒有活動、課堂或死線</strong><small>可以把注意力留給真正重要的事。</small></div></div>}
             </div>
-            {!data.campusCalendarDownloaded && <><button className="campus-calendar-button" onClick={exportCampusCalendar}>更新手機行事曆</button><p className="lockscreen-steps">包含普通活動、課堂與功課；在 iPhone 開啟 .ics 後按「加入全部」。</p></>}
+            {!nativeMode && !data.campusCalendarDownloaded && <><button className="campus-calendar-button" onClick={exportCampusCalendar}>更新手機行事曆</button><p className="lockscreen-steps">包含普通活動、課堂與功課；在 iPhone 開啟 .ics 後按「加入全部」。</p></>}
           </section>
 
           <section className="card daily-brief-card">
@@ -997,7 +1007,7 @@ export default function Home() {
         </>}
 
         {tab === "activity" && <>
-          <section className="hero plan-hero"><span className="eyebrow">New event</span><h1>把下一件事，<br /><em>放進日程。</em></h1><p>設定日期、時間和顏色；預設會同時下載到手機行事曆。</p></section>
+          <section className="hero plan-hero"><span className="eyebrow">New event</span><h1>把下一件事，<br /><em>放進日程。</em></h1><p>{nativeMode ? "設定一次，iPhone 會接手行事曆、通知與鎖屏顯示。" : "設定日期、時間和顏色；預設會同時下載到手機行事曆。"}</p></section>
 
           <section className="card plan-form-card">
             <div className="section-heading"><div><span className="eyebrow">Plan ahead</span><h2>新增活動</h2></div><span className="count">＋</span></div>
@@ -1005,10 +1015,10 @@ export default function Home() {
               <div className="form-pair emoji-name-pair"><label>Emoji<select value={planEmoji} onChange={(event) => setPlanEmoji(event.target.value)}>{emojiOptions.map((emoji) => <option key={emoji}>{emoji}</option>)}</select></label><label>活動<input value={planActivity} onChange={(event) => { setPlanActivity(event.target.value); setPlanFeedback(""); }} placeholder="例如：跆拳道訓練" aria-label="活動名稱" /></label></div>
               <div className="form-pair"><label>日期<input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} /></label><label>確實時間<input type="time" value={planTime} onChange={(event) => setPlanTime(event.target.value)} /></label></div>
               <fieldset className="color-picker"><legend>活動顏色</legend><div>{planColors.map((color, index) => <button type="button" key={color} aria-label={`選擇${planColorNames[index]}`} title={planColorNames[index]} aria-pressed={planColor === color} className={planColor === color ? "selected" : ""} style={{ background: color }} onClick={() => setPlanColor(color)} />)}</div></fieldset>
-              <label className="calendar-download-option"><input type="checkbox" checked={addPlanToCalendar} onChange={(event) => setAddPlanToCalendar(event.target.checked)} /><span><strong>同時下載到手機行事曆</strong><small>iPhone 開啟 .ics 檔後按「加入」，活動才會出現在鎖屏日曆。</small></span></label>
+              {nativeMode ? <div className="native-sync-option"><span>iPhone</span><div><strong>自動同步已連接</strong><small>儲存後會交由原生 App 寫入行事曆並更新鎖屏。</small></div></div> : <label className="calendar-download-option"><input type="checkbox" checked={addPlanToCalendar} onChange={(event) => setAddPlanToCalendar(event.target.checked)} /><span><strong>同時下載到手機行事曆</strong><small>iPhone 開啟 .ics 檔後按「加入」，活動才會出現在鎖屏日曆。</small></span></label>}
               <p className="field-note">🔔 提前 {data.scheduleReminderDays} 天提醒。</p>
               {planError && <p className="form-error" role="alert">{planError}</p>}
-              <button className="primary-button" type="submit">{addPlanToCalendar ? "加入活動並下載" : "加入活動"}</button>
+              <button className="primary-button" type="submit">{nativeMode ? "加入並自動同步" : addPlanToCalendar ? "加入活動並下載" : "加入活動"}</button>
               {planFeedback && <p className="form-success" role="status">{planFeedback}</p>}
             </form>
           </section>
@@ -1020,7 +1030,7 @@ export default function Home() {
             <div className="plan-list">{sortedPlans.map((plan) => <article className={`card plan-row ${plan.done ? "done" : ""}`} key={plan.id} style={{ borderLeftColor: plan.color }}>
               <button className="plan-check" aria-label={plan.done ? "標記為未完成" : "標記為完成"} onClick={() => togglePlan(plan.id)}><span /></button>
               <div className="plan-copy"><small>{parseIso(plan.date).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })}</small><strong>{plan.time}</strong><p>{plan.emoji ?? "📌"} {plan.activity} · 提前 {data.scheduleReminderDays} 天</p></div>
-              <div className="plan-actions"><button onClick={() => addToPhoneCalendar(plan)} aria-label={`${plan.calendarAdded ? "重新下載" : "把"}${plan.activity}${plan.calendarAdded ? "的手機行事曆檔案" : "加入手機行事曆"}`}>{plan.calendarAdded ? "重新下載" : "加入行事曆"}</button><button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
+              <div className="plan-actions">{!nativeMode && <button onClick={() => addToPhoneCalendar(plan)} aria-label={`${plan.calendarAdded ? "重新下載" : "把"}${plan.activity}${plan.calendarAdded ? "的手機行事曆檔案" : "加入手機行事曆"}`}>{plan.calendarAdded ? "重新下載" : "加入行事曆"}</button>}<button className="delete-plan" onClick={() => deletePlan(plan.id)} aria-label={`刪除${plan.activity}`}>刪除</button></div>
             </article>)}</div>
             {!sortedPlans.length && <p className="empty-plans">暫時沒有未來活動。<br />把下一件重要的事放進來吧。</p>}
           </section>
@@ -1050,13 +1060,18 @@ export default function Home() {
             <div className="sync-actions">{!data.campusCalendarDownloaded && <button className="primary-button" onClick={exportCampusCalendar}>更新手機行事曆</button>}{!notificationsConfigured && <button className="quiet-action" onClick={enableNotifications}>開啟 App 通知</button>}</div>
           </section>}
 
+          {nativeMode && <section className="card notification-card campus-sync-card native-sync-card">
+            <div><span className="eyebrow">iPhone native</span><h2>由系統自動接手</h2><p>普通活動、課堂、功課與公事會寫入 Apple 行事曆；通知預排後，即使暮刻沒有開啟仍會送達。</p></div>
+            <button className="quiet-action" onClick={openNativeSettings}>管理權限與鎖屏</button>
+          </section>}
+
           <section className="card campus-preferences-card">
             <div className="section-heading"><div><span className="eyebrow">Personal rhythm</span><h2>提醒方式</h2></div><button className="text-button" onClick={() => setShowReminderSettings(!showReminderSettings)}>{showReminderSettings ? "完成" : "調整"}</button></div>
             <p className="preference-summary">活動／課堂提前 {data.scheduleReminderDays} 天 · 功課提前 {data.assignmentReminderDays} 天</p>
             {showReminderSettings && <div className="reminder-settings">
               <label><span>活動與課堂</span><select value={data.scheduleReminderDays} onChange={(event) => updateScheduleReminderDays(Number(event.target.value))}><option value={1}>提前 1 天</option><option value={2}>提前 2 天</option><option value={3}>提前 3 天</option></select></label>
               <label><span>功課死線</span><select value={data.assignmentReminderDays} onChange={(event) => updateAssignmentReminderDays(Number(event.target.value))}><option value={3}>提前 3 天</option><option value={7}>提前 7 天</option><option value={14}>提前 14 天</option></select></label>
-              <p>更改提醒時間後，「更新手機行事曆」會重新出現。這是因為網站不能在背景直接修改你已匯入的 iPhone 日曆。</p>
+              <p>{nativeMode ? "更改後，原生 App 會重新同步 Apple 行事曆與通知時間。" : "更改提醒時間後，「更新手機行事曆」會重新出現。這是因為網站不能在背景直接修改你已匯入的 iPhone 日曆。"}</p>
             </div>}
           </section>
 
@@ -1092,7 +1107,7 @@ export default function Home() {
             </form>}
             <div className="academic-list">{sortedAssignments.map((item) => <article className={`academic-row assignment-row ${item.done ? "done" : ""}`} key={item.id} style={{ borderLeftColor: item.color }}>
               <button className="assignment-check" onClick={() => toggleAssignment(item.id)} aria-label={item.done ? "標記未完成" : "標記完成"}>{item.done ? "✓" : item.emoji}</button><div className="academic-copy"><small>{parseIso(item.dueDate).toLocaleDateString("zh-HK", { month: "long", day: "numeric", weekday: "short" })} · {item.dueTime}</small><strong>{item.course}</strong><p>{item.title} · 提前 {data.assignmentReminderDays} 天提醒</p></div>
-              <div className="academic-row-actions"><button onClick={() => addAssignmentToPhoneCalendar(item)} aria-label={`${item.calendarAdded ? "重新下載" : "把"}${item.title}${item.calendarAdded ? "的手機行事曆檔案" : "加入手機行事曆"}`}>{item.calendarAdded ? "重新下載" : "行事曆"}</button><button onClick={() => deleteAssignment(item.id)} aria-label={`刪除${item.title}`}>刪除</button></div>
+              <div className="academic-row-actions">{!nativeMode && <button onClick={() => addAssignmentToPhoneCalendar(item)} aria-label={`${item.calendarAdded ? "重新下載" : "把"}${item.title}${item.calendarAdded ? "的手機行事曆檔案" : "加入手機行事曆"}`}>{item.calendarAdded ? "重新下載" : "行事曆"}</button>}<button onClick={() => deleteAssignment(item.id)} aria-label={`刪除${item.title}`}>刪除</button></div>
             </article>)}</div>
             {!sortedAssignments.length && !showAssignmentForm && <p className="empty-plans">未有功課死線。<br />把作業、測驗或報告放進來吧。</p>}
           </section>
