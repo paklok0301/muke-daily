@@ -1,0 +1,588 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		06278F810C3710A9ACFE44A9 /* AgendaBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6366DE88D27750D74AE082CF /* AgendaBuilder.swift */; };
+		16EB187DF346C762C8FFC4CD /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA8CB2B7C47BB87A1E261BC3 /* ActivityKit.framework */; };
+		194D39B5BBFB29F1EDEA7173 /* MukeWidgetTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB6CEA36CBF67DC5D5FE3F2 /* MukeWidgetTokens.swift */; };
+		2157EAA38A536476450F8118 /* EventKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 038275FA267990138ED44F79 /* EventKit.framework */; };
+		3061D6E1207DCCFD5B44E6E3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = C703C9896CDD0D0971E22B23 /* Models.swift */; };
+		3992F13E8D8D16CDDA772EF2 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA8CB2B7C47BB87A1E261BC3 /* ActivityKit.framework */; };
+		3F239993F325E53F1D395913 /* ScheduleSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7345AFEFA2D60D8593D4723 /* ScheduleSyncCoordinator.swift */; };
+		42D0E2323F371E2FE37800D4 /* AgendaWidgetSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514BAE29CFC9D04E8FB9D27C /* AgendaWidgetSupport.swift */; };
+		4739CB9CA767AEAA170086FF /* SharedScheduleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E5ABF64DDB43296528F138 /* SharedScheduleStore.swift */; };
+		475A62643342BDBFDC8E6AE6 /* LockScreenAgendaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B829012E811DA932B8EF53B2 /* LockScreenAgendaWidget.swift */; };
+		4A66B714CF65998FBAE52F30 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC03AB88872FFC66120ABE0E /* WidgetKit.framework */; };
+		4B9FD1168F2BB1931BF5A79E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC03AB88872FFC66120ABE0E /* WidgetKit.framework */; };
+		4E37A27B06247C98E53CF6E9 /* HongKongDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAF2B2B5E0BC35558E186593 /* HongKongDate.swift */; };
+		5B0BAC8E5141166FE9875084 /* DailyAgendaAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC0075C9C2EC66C82A8C884 /* DailyAgendaAttributes.swift */; };
+		5F3C9B55A5347AAF0C7173C0 /* CalendarSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E44928C7F80C9BF7BC7B87D /* CalendarSyncService.swift */; };
+		6DD72820D1A05B2270725CFC /* MukeWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5FA3EDC02F0AA983833B807B /* MukeWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8B338147195B3F051A3F4B3E /* WebContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B0E21B62EDC2D6995EC234 /* WebContainer.swift */; };
+		9048FF7C1BE6C2E2DFF25FD0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D9A34BF80A9B007A70D830C5 /* Assets.xcassets */; };
+		9063F9E7208BDC2AD37874BD /* AgendaLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEC0D0D9964F0FB4A10F8E5 /* AgendaLiveActivity.swift */; };
+		90E478B08F502DDEA24AA439 /* MediumAgendaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F83D28FFAE2F690CCE4F0CF /* MediumAgendaWidget.swift */; };
+		9FC9597A85EB6A3AEC446888 /* AgendaBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6366DE88D27750D74AE082CF /* AgendaBuilder.swift */; };
+		B480498ECE7E3C9C12F26EC6 /* MukeDailyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 728665726DDF171874AD4DB5 /* MukeDailyApp.swift */; };
+		B627C37822E42923EC9CAEC9 /* MukeWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F251317E43A861E45C57974A /* MukeWidgetsBundle.swift */; };
+		C3BF05F75F7E405424A40FD3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = C703C9896CDD0D0971E22B23 /* Models.swift */; };
+		C7EA9BA28FD0077B31E3FD94 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4566506B4056C668CAD6918A /* UserNotifications.framework */; };
+		D633F05A7A103A3348089F4D /* HongKongDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAF2B2B5E0BC35558E186593 /* HongKongDate.swift */; };
+		D86F4FC0CF7120B38F6CCFB4 /* LiveActivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8AB641DB8ECD8961510ECDA /* LiveActivityService.swift */; };
+		DEB595F137BE465A74A2F7A3 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E42B0C8683B4D4C5D1A533E /* RootView.swift */; };
+		DED354B5C20E3754297CC1BD /* SharedScheduleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E5ABF64DDB43296528F138 /* SharedScheduleStore.swift */; };
+		E59927BDBE3CEFD0F120721F /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C0E00E935BC7F83E8679E6C /* ReminderScheduler.swift */; };
+		F22F04A877FF41DB55230656 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 43FE4437D69236EBB90A50BD /* SwiftUI.framework */; };
+		F8C412091AC789DF5B4F984E /* DailyAgendaAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC0075C9C2EC66C82A8C884 /* DailyAgendaAttributes.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B268CA2458FA2B03BEAA0659 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9DEC687F01C01B6EF0E11E87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C184F2947E60CE12F03D3565;
+			remoteInfo = MukeWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		81229BC27C3D1B7089FBC127 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6DD72820D1A05B2270725CFC /* MukeWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		038275FA267990138ED44F79 /* EventKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = EventKit.framework; path = System/Library/Frameworks/EventKit.framework; sourceTree = SDKROOT; };
+		0C0E00E935BC7F83E8679E6C /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderScheduler.swift; sourceTree = "<group>"; };
+		0E44928C7F80C9BF7BC7B87D /* CalendarSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncService.swift; sourceTree = "<group>"; };
+		0FADEF3FE2B148D4492E4926 /* MukeDaily.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MukeDaily.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		24B0E21B62EDC2D6995EC234 /* WebContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContainer.swift; sourceTree = "<group>"; };
+		2E42B0C8683B4D4C5D1A533E /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		3F83D28FFAE2F690CCE4F0CF /* MediumAgendaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediumAgendaWidget.swift; sourceTree = "<group>"; };
+		43FE4437D69236EBB90A50BD /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		4566506B4056C668CAD6918A /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
+		514BAE29CFC9D04E8FB9D27C /* AgendaWidgetSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgendaWidgetSupport.swift; sourceTree = "<group>"; };
+		58E5ABF64DDB43296528F138 /* SharedScheduleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedScheduleStore.swift; sourceTree = "<group>"; };
+		5FA3EDC02F0AA983833B807B /* MukeWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MukeWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6366DE88D27750D74AE082CF /* AgendaBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgendaBuilder.swift; sourceTree = "<group>"; };
+		6EC0075C9C2EC66C82A8C884 /* DailyAgendaAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyAgendaAttributes.swift; sourceTree = "<group>"; };
+		728665726DDF171874AD4DB5 /* MukeDailyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MukeDailyApp.swift; sourceTree = "<group>"; };
+		7778DB2130421B291C2EFEDF /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		7AB6CEA36CBF67DC5D5FE3F2 /* MukeWidgetTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MukeWidgetTokens.swift; sourceTree = "<group>"; };
+		9C7865B7996493D7C2480D28 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		B829012E811DA932B8EF53B2 /* LockScreenAgendaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenAgendaWidget.swift; sourceTree = "<group>"; };
+		BAEC0D0D9964F0FB4A10F8E5 /* AgendaLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgendaLiveActivity.swift; sourceTree = "<group>"; };
+		C703C9896CDD0D0971E22B23 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		C7345AFEFA2D60D8593D4723 /* ScheduleSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleSyncCoordinator.swift; sourceTree = "<group>"; };
+		D8AB641DB8ECD8961510ECDA /* LiveActivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityService.swift; sourceTree = "<group>"; };
+		D9A34BF80A9B007A70D830C5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		EC03AB88872FFC66120ABE0E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		F251317E43A861E45C57974A /* MukeWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MukeWidgetsBundle.swift; sourceTree = "<group>"; };
+		FA8CB2B7C47BB87A1E261BC3 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		FAF2B2B5E0BC35558E186593 /* HongKongDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HongKongDate.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		316B30E37BFF544B5981298E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3992F13E8D8D16CDDA772EF2 /* ActivityKit.framework in Frameworks */,
+				2157EAA38A536476450F8118 /* EventKit.framework in Frameworks */,
+				C7EA9BA28FD0077B31E3FD94 /* UserNotifications.framework in Frameworks */,
+				4B9FD1168F2BB1931BF5A79E /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA19B84B6A185DA99A15CA40 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				16EB187DF346C762C8FFC4CD /* ActivityKit.framework in Frameworks */,
+				F22F04A877FF41DB55230656 /* SwiftUI.framework in Frameworks */,
+				4A66B714CF65998FBAE52F30 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		21A43A36176369D15EE25422 /* Widgets */ = {
+			isa = PBXGroup;
+			children = (
+				BAEC0D0D9964F0FB4A10F8E5 /* AgendaLiveActivity.swift */,
+				514BAE29CFC9D04E8FB9D27C /* AgendaWidgetSupport.swift */,
+				6EC0075C9C2EC66C82A8C884 /* DailyAgendaAttributes.swift */,
+				D8AB641DB8ECD8961510ECDA /* LiveActivityService.swift */,
+				B829012E811DA932B8EF53B2 /* LockScreenAgendaWidget.swift */,
+				3F83D28FFAE2F690CCE4F0CF /* MediumAgendaWidget.swift */,
+				F251317E43A861E45C57974A /* MukeWidgetsBundle.swift */,
+				7AB6CEA36CBF67DC5D5FE3F2 /* MukeWidgetTokens.swift */,
+			);
+			path = Widgets;
+			sourceTree = "<group>";
+		};
+		3C4FEF0D89A126825D7A67A4 = {
+			isa = PBXGroup;
+			children = (
+				404F4B9498938903777C7F87 /* App */,
+				A4C7AB2E3C7E5809A3219C11 /* Config */,
+				F44EE602A7556AA8059B675F /* Shared */,
+				21A43A36176369D15EE25422 /* Widgets */,
+				A98A1165BA1AF3DEA761FE72 /* Frameworks */,
+				D3B60F435E451FE9499B23E0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		404F4B9498938903777C7F87 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				D9A34BF80A9B007A70D830C5 /* Assets.xcassets */,
+				0E44928C7F80C9BF7BC7B87D /* CalendarSyncService.swift */,
+				728665726DDF171874AD4DB5 /* MukeDailyApp.swift */,
+				0C0E00E935BC7F83E8679E6C /* ReminderScheduler.swift */,
+				2E42B0C8683B4D4C5D1A533E /* RootView.swift */,
+				C7345AFEFA2D60D8593D4723 /* ScheduleSyncCoordinator.swift */,
+				24B0E21B62EDC2D6995EC234 /* WebContainer.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A4C7AB2E3C7E5809A3219C11 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				9C7865B7996493D7C2480D28 /* Debug.xcconfig */,
+				7778DB2130421B291C2EFEDF /* Release.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		A98A1165BA1AF3DEA761FE72 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FA8CB2B7C47BB87A1E261BC3 /* ActivityKit.framework */,
+				038275FA267990138ED44F79 /* EventKit.framework */,
+				43FE4437D69236EBB90A50BD /* SwiftUI.framework */,
+				4566506B4056C668CAD6918A /* UserNotifications.framework */,
+				EC03AB88872FFC66120ABE0E /* WidgetKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D3B60F435E451FE9499B23E0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0FADEF3FE2B148D4492E4926 /* MukeDaily.app */,
+				5FA3EDC02F0AA983833B807B /* MukeWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F44EE602A7556AA8059B675F /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				6366DE88D27750D74AE082CF /* AgendaBuilder.swift */,
+				FAF2B2B5E0BC35558E186593 /* HongKongDate.swift */,
+				C703C9896CDD0D0971E22B23 /* Models.swift */,
+				58E5ABF64DDB43296528F138 /* SharedScheduleStore.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3D818C33D90A7E39E45D9174 /* MukeDaily */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B5D4DFD4D16531034294C789 /* Build configuration list for PBXNativeTarget "MukeDaily" */;
+			buildPhases = (
+				E3BA95B3EEBB73AEC35C2CC9 /* Sources */,
+				D2B212E8FD661DA04632ACFB /* Resources */,
+				316B30E37BFF544B5981298E /* Frameworks */,
+				81229BC27C3D1B7089FBC127 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				623C850DBE27B06A63966290 /* PBXTargetDependency */,
+			);
+			name = MukeDaily;
+			packageProductDependencies = (
+			);
+			productName = MukeDaily;
+			productReference = 0FADEF3FE2B148D4492E4926 /* MukeDaily.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C184F2947E60CE12F03D3565 /* MukeWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 751C9D6C6F9D0A856D8AAE02 /* Build configuration list for PBXNativeTarget "MukeWidgets" */;
+			buildPhases = (
+				D1936AD606BB9A96A228AA35 /* Sources */,
+				AA19B84B6A185DA99A15CA40 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MukeWidgets;
+			packageProductDependencies = (
+			);
+			productName = MukeWidgets;
+			productReference = 5FA3EDC02F0AA983833B807B /* MukeWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9DEC687F01C01B6EF0E11E87 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					3D818C33D90A7E39E45D9174 = {
+						ProvisioningStyle = Automatic;
+					};
+					C184F2947E60CE12F03D3565 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 171685FA113BC109AEF99E02 /* Build configuration list for PBXProject "MukeDaily" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 3C4FEF0D89A126825D7A67A4;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D3B60F435E451FE9499B23E0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3D818C33D90A7E39E45D9174 /* MukeDaily */,
+				C184F2947E60CE12F03D3565 /* MukeWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D2B212E8FD661DA04632ACFB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9048FF7C1BE6C2E2DFF25FD0 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D1936AD606BB9A96A228AA35 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9FC9597A85EB6A3AEC446888 /* AgendaBuilder.swift in Sources */,
+				9063F9E7208BDC2AD37874BD /* AgendaLiveActivity.swift in Sources */,
+				42D0E2323F371E2FE37800D4 /* AgendaWidgetSupport.swift in Sources */,
+				F8C412091AC789DF5B4F984E /* DailyAgendaAttributes.swift in Sources */,
+				D633F05A7A103A3348089F4D /* HongKongDate.swift in Sources */,
+				475A62643342BDBFDC8E6AE6 /* LockScreenAgendaWidget.swift in Sources */,
+				90E478B08F502DDEA24AA439 /* MediumAgendaWidget.swift in Sources */,
+				3061D6E1207DCCFD5B44E6E3 /* Models.swift in Sources */,
+				194D39B5BBFB29F1EDEA7173 /* MukeWidgetTokens.swift in Sources */,
+				B627C37822E42923EC9CAEC9 /* MukeWidgetsBundle.swift in Sources */,
+				4739CB9CA767AEAA170086FF /* SharedScheduleStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3BA95B3EEBB73AEC35C2CC9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				06278F810C3710A9ACFE44A9 /* AgendaBuilder.swift in Sources */,
+				5F3C9B55A5347AAF0C7173C0 /* CalendarSyncService.swift in Sources */,
+				5B0BAC8E5141166FE9875084 /* DailyAgendaAttributes.swift in Sources */,
+				4E37A27B06247C98E53CF6E9 /* HongKongDate.swift in Sources */,
+				D86F4FC0CF7120B38F6CCFB4 /* LiveActivityService.swift in Sources */,
+				C3BF05F75F7E405424A40FD3 /* Models.swift in Sources */,
+				B480498ECE7E3C9C12F26EC6 /* MukeDailyApp.swift in Sources */,
+				E59927BDBE3CEFD0F120721F /* ReminderScheduler.swift in Sources */,
+				DEB595F137BE465A74A2F7A3 /* RootView.swift in Sources */,
+				3F239993F325E53F1D395913 /* ScheduleSyncCoordinator.swift in Sources */,
+				DED354B5C20E3754297CC1BD /* SharedScheduleStore.swift in Sources */,
+				8B338147195B3F051A3F4B3E /* WebContainer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		623C850DBE27B06A63966290 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C184F2947E60CE12F03D3565 /* MukeWidgets */;
+			targetProxy = B268CA2458FA2B03BEAA0659 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		220060372E3D93B297D24B3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/MukeWidgets.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Widget-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paklok0301.mukedaily.widgets;
+				PRODUCT_NAME = MukeWidgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7864970365261835B580D527 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/MukeDaily.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/App-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paklok0301.mukedaily;
+				PRODUCT_NAME = MukeDaily;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C8EF1CD26B6F1AC3F96915A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/MukeWidgets.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Widget-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paklok0301.mukedaily.widgets;
+				PRODUCT_NAME = MukeWidgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D2E6F4037457FC48318F9E7F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/MukeDaily.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/App-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paklok0301.mukedaily;
+				PRODUCT_NAME = MukeDaily;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EF5504A438DE37E582403A39 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7778DB2130421B291C2EFEDF /* Release.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.10;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F809CFD8FA5961CB5CEB95D9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9C7865B7996493D7C2480D28 /* Debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.10;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		171685FA113BC109AEF99E02 /* Build configuration list for PBXProject "MukeDaily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F809CFD8FA5961CB5CEB95D9 /* Debug */,
+				EF5504A438DE37E582403A39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		751C9D6C6F9D0A856D8AAE02 /* Build configuration list for PBXNativeTarget "MukeWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				220060372E3D93B297D24B3B /* Debug */,
+				C8EF1CD26B6F1AC3F96915A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B5D4DFD4D16531034294C789 /* Build configuration list for PBXNativeTarget "MukeDaily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2E6F4037457FC48318F9E7F /* Debug */,
+				7864970365261835B580D527 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9DEC687F01C01B6EF0E11E87 /* Project object */;
+}

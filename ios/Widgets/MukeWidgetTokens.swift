@@ -19,7 +19,7 @@ enum MukeWidgetTokens {
             return custom
         }
 
-        switch entry.kind {
+        return switch entry.kind {
         case .plan: plan
         case .recurringClass: recurringClass
         case .assignment: assignment

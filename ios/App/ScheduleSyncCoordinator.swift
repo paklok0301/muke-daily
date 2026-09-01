@@ -65,13 +65,13 @@ public final class ScheduleSyncCoordinator {
 
     public init(
         store: SharedScheduleStore = SharedScheduleStore(),
-        calendarService: CalendarSyncService = CalendarSyncService(),
-        reminderScheduler: ReminderScheduler = ReminderScheduler(),
+        calendarService: CalendarSyncService? = nil,
+        reminderScheduler: ReminderScheduler? = nil,
         liveActivityRefresher: (any LiveActivityRefreshing)? = nil
     ) {
         self.store = store
-        self.calendarService = calendarService
-        self.reminderScheduler = reminderScheduler
+        self.calendarService = calendarService ?? CalendarSyncService()
+        self.reminderScheduler = reminderScheduler ?? ReminderScheduler()
         self.liveActivityRefresher = liveActivityRefresher
     }
 

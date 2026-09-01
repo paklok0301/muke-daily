@@ -36,8 +36,29 @@ targets:
       - path: Widgets/LiveActivityService.swift
     info:
       path: Config/App-Info.plist
+      properties:
+        CFBundleDevelopmentRegion: zh_HK
+        CFBundleDisplayName: 暮刻
+        CFBundleURLTypes:
+          - CFBundleURLName: com.paklok0301.mukedaily
+            CFBundleURLSchemes:
+              - muke
+        LSRequiresIPhoneOS: true
+        NSCalendarsFullAccessUsageDescription: 允許暮刻把活動、課堂、功課及工作直接加入你的行事曆。
+        NSCalendarsUsageDescription: 允許暮刻把活動、課堂、功課及工作加入你的行事曆。
+        NSCalendarsWriteOnlyAccessUsageDescription: 允許暮刻把你新增的安排自動寫入手機行事曆。
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: false
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
     entitlements:
       path: Config/MukeDaily.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.paklok0301.muke
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.paklok0301.mukedaily
@@ -66,8 +87,16 @@ targets:
           - LiveActivityService.swift
     info:
       path: Config/Widget-Info.plist
+      properties:
+        CFBundleDevelopmentRegion: zh_HK
+        CFBundleDisplayName: 暮刻小工具
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
       path: Config/MukeWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.paklok0301.muke
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.paklok0301.mukedaily.widgets
