@@ -4,5 +4,6 @@ gh-pages/
 .wrangler/
 .pnpm-store/
 ios/.build/
+ios/**/xcuserdata/
 .DS_Store
 work/*.tar.gz
